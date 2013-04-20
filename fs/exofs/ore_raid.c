@@ -328,8 +328,8 @@ static int _alloc_read_4_write(struct ore_io_state *ios)
 /* @si contains info of the to-be-inserted page. Update of @si should be
  * maintained by caller. Specificaly si->dev, si->obj_offset, ...
  */
-static int _add_to_read_4_write(struct ore_io_state *ios,
-				struct ore_striping_info *si, struct page *page)
+static int _add_to_r4w(struct ore_io_state *ios, struct ore_striping_info *si,
+		       struct page *page, unsigned pg_len)
 {
 	struct request_queue *q;
 	struct ore_per_dev_state *per_dev;
@@ -366,15 +366,58 @@ static int _add_to_read_4_write(struct ore_io_state *ios,
 		_ore_add_sg_seg(per_dev, gap, true);
 	}
 	q = osd_request_queue(ore_comp_dev(read_ios->oc, per_dev->dev));
-	added_len = bio_add_pc_page(q, per_dev->bio, page, PAGE_SIZE, 0);
-	if (unlikely(added_len != PAGE_SIZE)) {
+	added_len = bio_add_pc_page(q, per_dev->bio, page, pg_len,
+				    si->obj_offset % PAGE_SIZE);
+	if (unlikely(added_len != pg_len)) {
 		ORE_DBGMSG("Failed to bio_add_pc_page bi_vcnt=%d\n",
 			      per_dev->bio->bi_vcnt);
 		return -ENOMEM;
 	}
 
-	per_dev->length += PAGE_SIZE;
+	per_dev->length += pg_len;
 	return 0;
+}
+
+/* read the beginning of an unaligned first page */
+static int _add_to_r4w_first_page(struct ore_io_state *ios, struct page *page)
+{
+	struct ore_striping_info si;
+	unsigned pg_len;
+
+	ore_calc_stripe_info(ios->layout, ios->offset, 0, &si);
+
+	pg_len = si.obj_offset % PAGE_SIZE;
+	si.obj_offset -= pg_len;
+
+	ORE_DBGMSG("offset=0x%llx len=0x%x index=0x%lx dev=%x\n",
+		   _LLU(si.obj_offset), pg_len, page->index, si.dev);
+
+	return _add_to_r4w(ios, &si, page, pg_len);
+}
+
+/* read the end of an incomplete last page */
+static int _add_to_r4w_last_page(struct ore_io_state *ios, u64 *offset)
+{
+	struct ore_striping_info si;
+	struct page *page;
+	unsigned pg_len, p, c;
+
+	ore_calc_stripe_info(ios->layout, *offset, 0, &si);
+
+	p = si.unit_off / PAGE_SIZE;
+	c = _dev_order(ios->layout->group_width * ios->layout->mirrors_p1,
+		       ios->layout->mirrors_p1, si.par_dev, si.dev);
+	page = ios->sp2d->_1p_stripes[p].pages[c];
+
+	pg_len = PAGE_SIZE - (si.unit_off % PAGE_SIZE);
+	*offset += pg_len;
+
+	ORE_DBGMSG("p=%d, c=%d next-offset=0x%llx len=0x%x dev=%x par_dev=%d\n",
+		   p, c, _LLU(*offset), pg_len, si.dev, si.par_dev);
+
+	BUG_ON(!page);
+
+	return _add_to_r4w(ios, &si, page, pg_len);
 }
 
 static void _mark_read4write_pages_uptodate(struct ore_io_state *ios, int ret)
@@ -418,22 +461,21 @@ static void _mark_read4write_pages_uptodate(struct ore_io_state *ios, int ret)
  * ios->sp2d[p][*], xor is calculated the same way. These pages are
  * allocated/freed and don't go through cache
  */
-static int _read_4_write(struct ore_io_state *ios)
+static int _read_4_write_first_stripe(struct ore_io_state *ios)
 {
-	struct ore_io_state *ios_read;
 	struct ore_striping_info read_si;
 	struct __stripe_pages_2d *sp2d = ios->sp2d;
 	u64 offset = ios->si.first_stripe_start;
-	u64 last_stripe_end;
-	unsigned bytes_in_stripe = ios->si.bytes_in_stripe;
-	unsigned i, c, p, min_p = sp2d->pages_in_unit, max_p = -1;
-	int ret;
+	unsigned c, p, min_p = sp2d->pages_in_unit, max_p = -1;
 
 	if (offset == ios->offset) /* Go to start collect $200 */
 		goto read_last_stripe;
 
 	min_p = _sp2d_min_pg(sp2d);
 	max_p = _sp2d_max_pg(sp2d);
+
+	ORE_DBGMSG("stripe_start=0x%llx ios->offset=0x%llx min_p=%d max_p=%d\n",
+		   offset, ios->offset, min_p, max_p);
 
 	for (c = 0; ; c++) {
 		ore_calc_stripe_info(ios->layout, offset, 0, &read_si);
@@ -444,9 +486,13 @@ static int _read_4_write(struct ore_io_state *ios)
 			struct page **pp = &_1ps->pages[c];
 			bool uptodate;
 
-			if (*pp)
+			if (*pp) {
+				if (ios->offset % PAGE_SIZE)
+					/* Read the remainder of the page */
+					_add_to_r4w_first_page(ios, *pp);
 				/* to-be-written pages start here */
 				goto read_last_stripe;
+			}
 
 			*pp = ios->r4w->get_page(ios->private, offset,
 						 &uptodate);
@@ -454,7 +500,7 @@ static int _read_4_write(struct ore_io_state *ios)
 				return -ENOMEM;
 
 			if (!uptodate)
-				_add_to_read_4_write(ios, &read_si, *pp);
+				_add_to_r4w(ios, &read_si, *pp, PAGE_SIZE);
 
 			/* Mark read-pages to be cache_released */
 			_1ps->page_is_read[c] = true;
@@ -465,8 +511,23 @@ static int _read_4_write(struct ore_io_state *ios)
 	}
 
 read_last_stripe:
-	offset = ios->offset + (ios->length + PAGE_SIZE - 1) /
-				PAGE_SIZE * PAGE_SIZE;
+	return 0;
+}
+
+static int _read_4_write_last_stripe(struct ore_io_state *ios)
+{
+	struct ore_striping_info read_si;
+	struct __stripe_pages_2d *sp2d = ios->sp2d;
+	u64 offset;
+	u64 last_stripe_end;
+	unsigned bytes_in_stripe = ios->si.bytes_in_stripe;
+	unsigned c, p, min_p = sp2d->pages_in_unit, max_p = -1;
+
+	offset = ios->offset + ios->length;
+	if (offset % PAGE_SIZE)
+		_add_to_r4w_last_page(ios, &offset);
+		/* offset will be aligned to next page */
+
 	last_stripe_end = div_u64(offset + bytes_in_stripe - 1, bytes_in_stripe)
 				 * bytes_in_stripe;
 	if (offset == last_stripe_end) /* Optimize for the aligned case */
@@ -477,14 +538,14 @@ read_last_stripe:
 	c = _dev_order(ios->layout->group_width * ios->layout->mirrors_p1,
 		       ios->layout->mirrors_p1, read_si.par_dev, read_si.dev);
 
-	BUG_ON(ios->si.first_stripe_start + bytes_in_stripe != last_stripe_end);
-	/* unaligned IO must be within a single stripe */
-
 	if (min_p == sp2d->pages_in_unit) {
 		/* Didn't do it yet */
 		min_p = _sp2d_min_pg(sp2d);
 		max_p = _sp2d_max_pg(sp2d);
 	}
+
+	ORE_DBGMSG("offset=0x%llx stripe_end=0x%llx min_p=%d max_p=%d\n",
+		   offset, last_stripe_end, min_p, max_p);
 
 	while (offset < last_stripe_end) {
 		struct __1_page_stripe *_1ps = &sp2d->_1p_stripes[p];
@@ -503,7 +564,7 @@ read_last_stripe:
 			/* Mark read-pages to be cache_released */
 			_1ps->page_is_read[c] = true;
 			if (!uptodate)
-				_add_to_read_4_write(ios, &read_si, page);
+				_add_to_r4w(ios, &read_si, page, PAGE_SIZE);
 		}
 
 		offset += PAGE_SIZE;
@@ -518,6 +579,15 @@ read_last_stripe:
 	}
 
 read_it:
+	return 0;
+}
+
+static int _read_4_write_execute(struct ore_io_state *ios)
+{
+	struct ore_io_state *ios_read;
+	unsigned i;
+	int ret;
+
 	ios_read = ios->ios_read_4_write;
 	if (!ios_read)
 		return 0;
@@ -541,6 +611,8 @@ read_it:
 	}
 
 	_mark_read4write_pages_uptodate(ios_read, ret);
+	ore_put_io_state(ios_read);
+	ios->ios_read_4_write = NULL; /* Might need a reuse at last stripe */
 	return 0;
 }
 
@@ -551,7 +623,11 @@ int _ore_add_parity_unit(struct ore_io_state *ios,
 			    unsigned cur_len)
 {
 	if (ios->reading) {
-		BUG_ON(per_dev->cur_sg >= ios->sgs_per_dev);
+		if (per_dev->cur_sg >= ios->sgs_per_dev) {
+			ORE_DBGMSG("cur_sg(%d) >= sgs_per_dev(%d)\n" ,
+				per_dev->cur_sg, ios->sgs_per_dev);
+			return -ENOMEM;
+		}
 		_ore_add_sg_seg(per_dev, cur_len, true);
 	} else {
 		struct __stripe_pages_2d *sp2d = ios->sp2d;
@@ -572,8 +648,11 @@ int _ore_add_parity_unit(struct ore_io_state *ios,
 			/* If first stripe, Read in all read4write pages
 			 * (if needed) before we calculate the first parity.
 			 */
-			_read_4_write(ios);
+			_read_4_write_first_stripe(ios);
 		}
+		if (!cur_len) /* If last stripe r4w pages of last stripe */
+			_read_4_write_last_stripe(ios);
+		_read_4_write_execute(ios);
 
 		for (i = 0; i < num_pages; i++) {
 			pages[i] = _raid_page_alloc();
@@ -600,35 +679,13 @@ int _ore_add_parity_unit(struct ore_io_state *ios,
 
 int _ore_post_alloc_raid_stuff(struct ore_io_state *ios)
 {
-	struct ore_layout *layout = ios->layout;
-
 	if (ios->parity_pages) {
+		struct ore_layout *layout = ios->layout;
 		unsigned pages_in_unit = layout->stripe_unit / PAGE_SIZE;
-		unsigned stripe_size = ios->si.bytes_in_stripe;
-		u64 last_stripe, first_stripe;
 
 		if (_sp2d_alloc(pages_in_unit, layout->group_width,
 				layout->parity, &ios->sp2d)) {
 			return -ENOMEM;
-		}
-
-		BUG_ON(ios->offset % PAGE_SIZE);
-
-		/* Round io down to last full strip */
-		first_stripe = div_u64(ios->offset, stripe_size);
-		last_stripe = div_u64(ios->offset + ios->length, stripe_size);
-
-		/* If an IO spans more then a single stripe it must end at
-		 * a stripe boundary. The reminder at the end is pushed into the
-		 * next IO.
-		 */
-		if (last_stripe != first_stripe) {
-			ios->length = last_stripe * stripe_size - ios->offset;
-
-			BUG_ON(!ios->length);
-			ios->nr_pages = (ios->length + PAGE_SIZE - 1) /
-					PAGE_SIZE;
-			ios->si.length = ios->length; /*make it consistent */
 		}
 	}
 	return 0;

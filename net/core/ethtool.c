@@ -1549,6 +1549,8 @@ static noinline_for_stack int ethtool_flash_device(struct net_device *dev,
 	if (!dev->ethtool_ops->flash_device)
 		return -EOPNOTSUPP;
 
+	efl.data[ETHTOOL_FLASH_MAX_FILENAME - 1] = 0;
+
 	return dev->ethtool_ops->flash_device(dev, &efl);
 }
 
@@ -1670,6 +1672,7 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
 	case ETHTOOL_GRXCSUM:
 	case ETHTOOL_GTXCSUM:
 	case ETHTOOL_GSG:
+	case ETHTOOL_GSSET_INFO:
 	case ETHTOOL_GSTRINGS:
 	case ETHTOOL_GTSO:
 	case ETHTOOL_GPERMADDR:

@@ -267,7 +267,6 @@ static void atl1c_check_link_status(struct atl1c_adapter *adapter)
 				dev_warn(&pdev->dev, "stop mac failed\n");
 		atl1c_set_aspm(hw, false);
 		netif_carrier_off(netdev);
-		netif_stop_queue(netdev);
 		atl1c_phy_reset(hw);
 		atl1c_phy_init(&adapter->hw);
 	} else {
@@ -2241,10 +2240,6 @@ static netdev_tx_t atl1c_xmit_frame(struct sk_buff *skb,
 			dev_info(&adapter->pdev->dev, "tx locked\n");
 		return NETDEV_TX_LOCKED;
 	}
-	if (skb->mark == 0x01)
-		type = atl1c_trans_high;
-	else
-		type = atl1c_trans_normal;
 
 	if (atl1c_tpd_avail(adapter, type) < tpd_req) {
 		/* no enough descriptor, just stop queue */

@@ -20,7 +20,7 @@
 #define PSW32_MASK_CC		0x00003000UL
 #define PSW32_MASK_PM		0x00000f00UL
 
-#define PSW32_MASK_USER		0x00003F00UL
+#define PSW32_MASK_USER		0x0000FF00UL
 
 #define PSW32_ADDR_AMODE	0x80000000UL
 #define PSW32_ADDR_INSN		0x7FFFFFFFUL
@@ -170,13 +170,6 @@ static inline compat_uptr_t ptr_to_compat(void __user *uptr)
 static inline int is_compat_task(void)
 {
 	return is_32bit_task();
-}
-
-#else
-
-static inline int is_compat_task(void)
-{
-	return 0;
 }
 
 #endif

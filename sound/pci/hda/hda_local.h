@@ -487,7 +487,12 @@ static inline u32 get_wcaps(struct hda_codec *codec, hda_nid_t nid)
 }
 
 /* get the widget type from widget capability bits */
-#define get_wcaps_type(wcaps) (((wcaps) & AC_WCAP_TYPE) >> AC_WCAP_TYPE_SHIFT)
+static inline int get_wcaps_type(unsigned int wcaps)
+{
+	if (!wcaps)
+		return -1; /* invalid type */
+	return (wcaps & AC_WCAP_TYPE) >> AC_WCAP_TYPE_SHIFT;
+}
 
 static inline unsigned int get_wcaps_channels(u32 wcaps)
 {
@@ -510,6 +515,8 @@ int snd_hda_jack_detect(struct hda_codec *codec, hda_nid_t nid);
 
 static inline bool is_jack_detectable(struct hda_codec *codec, hda_nid_t nid)
 {
+	if (codec->no_jack_detect)
+		return false;
 	if (!(snd_hda_query_pin_caps(codec, nid) & AC_PINCAP_PRES_DETECT))
 		return false;
 	if (!codec->ignore_misc_bit &&

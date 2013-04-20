@@ -124,9 +124,10 @@ static int bcma_register_cores(struct bcma_bus *bus)
 
 static void bcma_unregister_cores(struct bcma_bus *bus)
 {
-	struct bcma_device *core;
+	struct bcma_device *core, *tmp;
 
-	list_for_each_entry(core, &bus->cores, list) {
+	list_for_each_entry_safe(core, tmp, &bus->cores, list) {
+		list_del(&core->list);
 		if (core->dev_registered)
 			device_unregister(&core->dev);
 	}
@@ -239,6 +240,22 @@ int __init bcma_bus_early_register(struct bcma_bus *bus,
 
 	return 0;
 }
+
+#ifdef CONFIG_PM
+int bcma_bus_resume(struct bcma_bus *bus)
+{
+	struct bcma_device *core;
+
+	/* Init CC core */
+	core = bcma_find_core(bus, BCMA_CORE_CHIPCOMMON);
+	if (core) {
+		bus->drv_cc.setup_done = false;
+		bcma_core_chipcommon_init(&bus->drv_cc);
+	}
+
+	return 0;
+}
+#endif
 
 int __bcma_driver_register(struct bcma_driver *drv, struct module *owner)
 {

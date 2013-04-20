@@ -123,9 +123,6 @@ static struct dentry *proc_sys_lookup(struct inode *dir, struct dentry *dentry,
 
 	err = ERR_PTR(-ENOMEM);
 	inode = proc_sys_make_inode(dir->i_sb, h ? h : head, p);
-	if (h)
-		sysctl_head_finish(h);
-
 	if (!inode)
 		goto out;
 
@@ -134,6 +131,8 @@ static struct dentry *proc_sys_lookup(struct inode *dir, struct dentry *dentry,
 	d_add(dentry, inode);
 
 out:
+	if (h)
+		sysctl_head_finish(h);
 	sysctl_head_finish(head);
 	return err;
 }
@@ -188,10 +187,17 @@ static ssize_t proc_sys_write(struct file *filp, const char __user *buf,
 
 static int proc_sys_open(struct inode *inode, struct file *filp)
 {
+	struct ctl_table_header *head = grab_header(inode);
 	struct ctl_table *table = PROC_I(inode)->sysctl_entry;
+
+	/* sysctl was unregistered */
+	if (IS_ERR(head))
+		return PTR_ERR(head);
 
 	if (table->poll)
 		filp->private_data = proc_sys_poll_event(table->poll);
+
+	sysctl_head_finish(head);
 
 	return 0;
 }
@@ -199,9 +205,14 @@ static int proc_sys_open(struct inode *inode, struct file *filp)
 static unsigned int proc_sys_poll(struct file *filp, poll_table *wait)
 {
 	struct inode *inode = filp->f_path.dentry->d_inode;
+	struct ctl_table_header *head = grab_header(inode);
 	struct ctl_table *table = PROC_I(inode)->sysctl_entry;
-	unsigned long event = (unsigned long)filp->private_data;
 	unsigned int ret = DEFAULT_POLLMASK;
+	unsigned long event;
+
+	/* sysctl was unregistered */
+	if (IS_ERR(head))
+		return POLLERR | POLLHUP;
 
 	if (!table->proc_handler)
 		goto out;
@@ -209,6 +220,7 @@ static unsigned int proc_sys_poll(struct file *filp, poll_table *wait)
 	if (!table->poll)
 		goto out;
 
+	event = (unsigned long)filp->private_data;
 	poll_wait(filp, &table->poll->wait, wait);
 
 	if (event != atomic_read(&table->poll->event)) {
@@ -217,6 +229,8 @@ static unsigned int proc_sys_poll(struct file *filp, poll_table *wait)
 	}
 
 out:
+	sysctl_head_finish(head);
+
 	return ret;
 }
 
