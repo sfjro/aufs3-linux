@@ -35,6 +35,7 @@
 extern struct lglock vfsmount_lock;
 extern void __mnt_drop_write(struct vfsmount *);
 extern spinlock_t inode_sb_list_lock;
+void __file_sb_list_add(struct file *file, struct super_block *sb);
 
 /* copied from linux/fs/file_table.c */
 extern struct lglock files_lglock;
