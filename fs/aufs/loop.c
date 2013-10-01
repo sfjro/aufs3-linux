@@ -129,7 +129,7 @@ int au_loopback_init(void)
 		goto out;
 
 	err = 0;
-	backing_file_func = symbol_get(loop_backing_file);
+	backing_file_func = symbol_request(loop_backing_file);
 	if (backing_file_func)
 		goto out; /* success */
 
