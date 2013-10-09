@@ -33,6 +33,14 @@ int au_test_loopback_overlap(struct super_block *sb, struct dentry *h_adding)
 	struct super_block *h_sb;
 	struct file *backing_file;
 
+	if (unlikely(!backing_file_func)) {
+		/* don't load "loop" module here */
+		backing_file_func = symbol_get(loop_backing_file);
+		if (unlikely(!backing_file_func))
+			/* "loop" module is not loaded */
+			return 0;
+	}
+
 	h_sb = h_adding->d_sb;
 	backing_file = backing_file_func(h_sb);
 	if (!backing_file)
@@ -122,21 +130,12 @@ int au_loopback_init(void)
 
 	AuDebugOn(sizeof(sb->s_magic) != sizeof(unsigned long));
 
-	err = -ENOMEM;
+	err = 0;
 	au_warn_loopback_array = kcalloc(au_warn_loopback_step,
 					 sizeof(unsigned long), GFP_NOFS);
 	if (unlikely(!au_warn_loopback_array))
-		goto out;
+		err = -ENOMEM;
 
-	err = 0;
-	backing_file_func = symbol_request(loop_backing_file);
-	if (backing_file_func)
-		goto out; /* success */
-
-	pr_err("loop_backing_file() is not defined\n");
-	err = -ENOSYS;
-	kfree(au_warn_loopback_array);
-out:
 	return err;
 }
 
