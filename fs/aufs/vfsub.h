@@ -304,8 +304,10 @@ static inline fmode_t vfsub_uint_to_fmode(unsigned int ui)
 
 int vfsub_sio_mkdir(struct inode *dir, struct path *path, int mode);
 int vfsub_sio_rmdir(struct inode *dir, struct path *path);
-int vfsub_sio_notify_change(struct path *path, struct iattr *ia);
-int vfsub_notify_change(struct path *path, struct iattr *ia);
+int vfsub_sio_notify_change(struct path *path, struct iattr *ia,
+			    struct inode **delegated_inode);
+int vfsub_notify_change(struct path *path, struct iattr *ia,
+			struct inode **delegated_inode);
 int vfsub_unlink(struct inode *dir, struct path *path, int force);
 
 #endif /* __KERNEL__ */

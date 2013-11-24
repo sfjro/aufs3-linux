@@ -647,6 +647,7 @@ struct notify_change_args {
 	int *errp;
 	struct path *path;
 	struct iattr *ia;
+	struct inode **delegated_inode;
 };
 
 static void call_notify_change(void *args)
@@ -659,20 +660,23 @@ static void call_notify_change(void *args)
 
 	*a->errp = -EPERM;
 	if (!IS_IMMUTABLE(h_inode) && !IS_APPEND(h_inode)) {
-		*a->errp = notify_change(a->path->dentry, a->ia);
+		*a->errp = notify_change(a->path->dentry, a->ia,
+					 a->delegated_inode);
 		if (!*a->errp)
 			vfsub_update_h_iattr(a->path, /*did*/NULL); /*ignore*/
 	}
 	AuTraceErr(*a->errp);
 }
 
-int vfsub_notify_change(struct path *path, struct iattr *ia)
+int vfsub_notify_change(struct path *path, struct iattr *ia,
+			struct inode **delegated_inode)
 {
 	int err;
 	struct notify_change_args args = {
-		.errp	= &err,
-		.path	= path,
-		.ia	= ia
+		.errp			= &err,
+		.path			= path,
+		.ia			= ia,
+		.delegated_inode	= delegated_inode
 	};
 
 	call_notify_change(&args);
@@ -680,13 +684,15 @@ int vfsub_notify_change(struct path *path, struct iattr *ia)
 	return err;
 }
 
-int vfsub_sio_notify_change(struct path *path, struct iattr *ia)
+int vfsub_sio_notify_change(struct path *path, struct iattr *ia,
+			    struct inode **delegated_inode)
 {
 	int err, wkq_err;
 	struct notify_change_args args = {
-		.errp	= &err,
-		.path	= path,
-		.ia	= ia
+		.errp			= &err,
+		.path			= path,
+		.ia			= ia,
+		.delegated_inode	= delegated_inode
 	};
 
 	wkq_err = au_wkq_wait(call_notify_change, &args);

@@ -144,7 +144,8 @@ void au_dtime_revert(struct au_dtime *dt)
 	attr.ia_valid = ATTR_FORCE | ATTR_MTIME | ATTR_MTIME_SET
 		| ATTR_ATIME | ATTR_ATIME_SET;
 
-	err = vfsub_notify_change(&dt->dt_h_path, &attr);
+	/* no delegation since this is a directory */
+	err = vfsub_notify_change(&dt->dt_h_path, &attr, /*delegated*/NULL);
 	if (unlikely(err))
 		pr_warn("restoring timestamps failed(%d). ignored\n", err);
 }
@@ -201,13 +202,14 @@ int cpup_iattr(struct dentry *dst, aufs_bindex_t bindex, struct dentry *h_src,
 		sbits = !!(h_isrc->i_mode & (S_ISUID | S_ISGID));
 		au_cpup_attr_flags(h_idst, h_isrc->i_flags);
 	}
-	err = vfsub_notify_change(&h_path, &ia);
+	/* no delegation since it is just created */
+	err = vfsub_notify_change(&h_path, &ia, /*delegated*/NULL);
 
 	/* is this nfs only? */
 	if (!err && sbits && au_test_nfs(h_path.dentry->d_sb)) {
 		ia.ia_valid = ATTR_FORCE | ATTR_MODE;
 		ia.ia_mode = h_isrc->i_mode;
-		err = vfsub_notify_change(&h_path, &ia);
+		err = vfsub_notify_change(&h_path, &ia, /*delegated*/NULL);
 	}
 
 	return err;
@@ -304,7 +306,9 @@ static int au_do_copy_file(struct file *dst, struct file *src, loff_t len,
 			ia->ia_file = dst;
 			h_mtx = &file_inode(dst)->i_mutex;
 			mutex_lock_nested(h_mtx, AuLsc_I_CHILD2);
-			err = vfsub_notify_change(&dst->f_path, ia);
+			/* no delegation since it is just created */
+			err = vfsub_notify_change(&dst->f_path, ia,
+						  /*delegated*/NULL);
 			mutex_unlock(h_mtx);
 		}
 	}
