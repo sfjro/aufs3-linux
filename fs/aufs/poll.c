@@ -43,7 +43,7 @@ unsigned int aufs_poll(struct file *file, poll_table *wait)
 	/* it is not an error if h_file has no operation */
 	mask = DEFAULT_POLLMASK;
 	h_file = au_hf_top(file);
-	if (h_file->f_op && h_file->f_op->poll)
+	if (h_file->f_op->poll)
 		mask = h_file->f_op->poll(h_file, wait);
 
 	di_read_unlock(dentry, AuLock_IR);

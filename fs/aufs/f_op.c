@@ -625,7 +625,7 @@ static int aufs_aio_fsync_nondir(struct kiocb *kio, int datasync)
 
 	err = -ENOSYS;
 	h_file = au_hf_top(file);
-	if (h_file->f_op && h_file->f_op->aio_fsync) {
+	if (h_file->f_op->aio_fsync) {
 		struct mutex *h_mtx;
 
 		h_mtx = &file_inode(h_file)->i_mutex;
@@ -668,7 +668,7 @@ static int aufs_fasync(int fd, struct file *file, int flag)
 		goto out;
 
 	h_file = au_hf_top(file);
-	if (h_file->f_op && h_file->f_op->fasync)
+	if (h_file->f_op->fasync)
 		err = h_file->f_op->fasync(fd, h_file, flag);
 
 	di_read_unlock(dentry, AuLock_IR);

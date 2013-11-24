@@ -464,7 +464,7 @@ int vfsub_flush(struct file *file, fl_owner_t id)
 	int err;
 
 	err = 0;
-	if (file->f_op && file->f_op->flush) {
+	if (file->f_op->flush) {
 		if (!au_test_nfs(file->f_dentry->d_sb))
 			err = file->f_op->flush(file, id);
 		else {

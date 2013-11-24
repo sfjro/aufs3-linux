@@ -365,20 +365,18 @@ static int au_cp_regular(struct au_cp_generic *cpg)
 		struct dentry *dentry;
 		int force_wr;
 		struct file *file;
-		void *label, *label_file;
+		void *label;
 	} *f, file[] = {
 		{
 			.bindex = cpg->bsrc,
 			.flags = O_RDONLY | O_NOATIME | O_LARGEFILE,
-			.label = &&out,
-			.label_file = &&out_src
+			.label = &&out
 		},
 		{
 			.bindex = cpg->bdst,
 			.flags = O_WRONLY | O_NOATIME | O_LARGEFILE,
 			.force_wr = !!au_ftest_cpup(cpg->flags, RWDST),
-			.label = &&out_src,
-			.label_file = &&out_dst
+			.label = &&out_src
 		}
 	};
 	struct super_block *sb;
@@ -393,18 +391,15 @@ static int au_cp_regular(struct au_cp_generic *cpg)
 		err = PTR_ERR(f->file);
 		if (IS_ERR(f->file))
 			goto *f->label;
-		err = -EINVAL;
-		if (unlikely(!f->file->f_op))
-			goto *f->label_file;
 	}
 
 	/* try stopping to update while we copyup */
 	IMustLock(file[SRC].dentry->d_inode);
 	err = au_copy_file(file[DST].file, file[SRC].file, cpg->len);
 
-out_dst:
 	fput(file[DST].file);
 	au_sbr_put(sb, file[DST].bindex);
+
 out_src:
 	fput(file[SRC].file);
 	au_sbr_put(sb, file[SRC].bindex);
