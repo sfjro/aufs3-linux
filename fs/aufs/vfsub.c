@@ -248,7 +248,8 @@ static int au_test_nlink(struct inode *inode)
 	return -EMLINK;
 }
 
-int vfsub_link(struct dentry *src_dentry, struct inode *dir, struct path *path)
+int vfsub_link(struct dentry *src_dentry, struct inode *dir, struct path *path,
+	       struct inode **delegated_inode)
 {
 	int err;
 	struct dentry *d;
@@ -268,7 +269,7 @@ int vfsub_link(struct dentry *src_dentry, struct inode *dir, struct path *path)
 		goto out;
 
 	lockdep_off();
-	err = vfs_link(src_dentry, dir, path->dentry);
+	err = vfs_link(src_dentry, dir, path->dentry, delegated_inode);
 	lockdep_on();
 	if (!err) {
 		struct path tmp = *path;

@@ -648,7 +648,7 @@ static int link_or_create_wh(struct super_block *sb, aufs_bindex_t bindex,
 	struct au_branch *br;
 	struct au_wbr *wbr;
 	struct dentry *h_parent;
-	struct inode *h_dir;
+	struct inode *h_dir, *delegated;
 
 	h_parent = wh->d_parent; /* dir inode is locked */
 	h_dir = h_parent->d_inode;
@@ -659,7 +659,13 @@ static int link_or_create_wh(struct super_block *sb, aufs_bindex_t bindex,
 	wbr = br->br_wbr;
 	wbr_wh_read_lock(wbr);
 	if (wbr->wbr_whbase) {
-		err = vfsub_link(wbr->wbr_whbase, h_dir, &h_path);
+		delegated = NULL;
+		err = vfsub_link(wbr->wbr_whbase, h_dir, &h_path, &delegated);
+		if (unlikely(err == -EWOULDBLOCK)) {
+			pr_warn("cannot retry for NFSv4 delegation"
+				" for an internal link\n");
+			iput(delegated);
+		}
 		if (!err || err != -EMLINK)
 			goto out;
 

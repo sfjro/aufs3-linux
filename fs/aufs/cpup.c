@@ -698,11 +698,17 @@ static int au_cpup_single(struct au_cp_generic *cpg, struct dentry *dst_parent)
 			}
 
 			a->h_path.dentry = h_dst;
-			err = vfsub_link(h_src, h_dir, &a->h_path);
+			delegated = NULL;
+			err = vfsub_link(h_src, h_dir, &a->h_path, &delegated);
 			if (!err && au_ftest_cpup(cpg->flags, RENAME))
 				err = au_do_ren_after_cpup(cpg, &a->h_path);
 			if (do_dt)
 				au_dtime_revert(&a->dt);
+			if (unlikely(err == -EWOULDBLOCK)) {
+				pr_warn("cannot retry for NFSv4 delegation"
+					" for an internal link\n");
+				iput(delegated);
+			}
 			dput(h_src);
 			goto out_parent;
 		} else

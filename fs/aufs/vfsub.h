@@ -173,7 +173,7 @@ int vfsub_symlink(struct inode *dir, struct path *path,
 		  const char *symname);
 int vfsub_mknod(struct inode *dir, struct path *path, int mode, dev_t dev);
 int vfsub_link(struct dentry *src_dentry, struct inode *dir,
-	       struct path *path);
+	       struct path *path, struct inode **delegated_inode);
 int vfsub_rename(struct inode *src_hdir, struct dentry *src_dentry,
 		 struct inode *hdir, struct path *path);
 int vfsub_mkdir(struct inode *dir, struct path *path, int mode);

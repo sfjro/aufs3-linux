@@ -407,7 +407,7 @@ static int au_cpup_or_link(struct dentry *src_dentry, struct dentry *dentry,
 	unsigned char plink;
 	aufs_bindex_t bend;
 	struct dentry *h_src_dentry;
-	struct inode *h_inode, *inode;
+	struct inode *h_inode, *inode, *delegated;
 	struct super_block *sb;
 	struct file *h_file;
 
@@ -468,8 +468,14 @@ static int au_cpup_or_link(struct dentry *src_dentry, struct dentry *dentry,
 
 		}
 		if (h_src_dentry) {
+			delegated = NULL;
 			err = vfsub_link(h_src_dentry, au_pinned_h_dir(&a->pin),
-					 &a->h_path);
+					 &a->h_path, &delegated);
+			if (unlikely(err == -EWOULDBLOCK)) {
+				pr_warn("cannot retry for NFSv4 delegation"
+					" for an internal link\n");
+				iput(delegated);
+			}
 			dput(h_src_dentry);
 		} else {
 			AuIOErr("no dentry found for hi%lu on b%d\n",
@@ -550,9 +556,16 @@ int aufs_link(struct dentry *src_dentry, struct inode *dir,
 		if (a->bdst < a->bsrc
 		    /* && h_src_dentry->d_sb != a->h_path.dentry->d_sb */)
 			err = au_cpup_or_link(src_dentry, dentry, a);
-		else
+		else {
+			delegated = NULL;
 			err = vfsub_link(h_src_dentry, au_pinned_h_dir(&a->pin),
-					 &a->h_path);
+					 &a->h_path, &delegated);
+			if (unlikely(err == -EWOULDBLOCK)) {
+				pr_warn("cannot retry for NFSv4 delegation"
+					" for an internal link\n");
+				iput(delegated);
+			}
+		}
 		dput(h_src_dentry);
 	} else {
 		/*
@@ -576,10 +589,18 @@ int aufs_link(struct dentry *src_dentry, struct inode *dir,
 		if (!err) {
 			h_src_dentry = au_h_dptr(src_dentry, a->bdst);
 			err = -ENOENT;
-			if (h_src_dentry && h_src_dentry->d_inode)
+			if (h_src_dentry && h_src_dentry->d_inode) {
+				delegated = NULL;
 				err = vfsub_link(h_src_dentry,
 						 au_pinned_h_dir(&a->pin),
-						 &a->h_path);
+						 &a->h_path, &delegated);
+				if (unlikely(err == -EWOULDBLOCK)) {
+					pr_warn("cannot retry"
+						" for NFSv4 delegation"
+						" for an internal link\n");
+					iput(delegated);
+				}
+			}
 		}
 	}
 	if (unlikely(err))

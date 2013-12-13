@@ -285,8 +285,15 @@ again:
 		if (!err)
 			goto again;
 	}
-	if (!err && !h_path.dentry->d_inode)
-		err = vfsub_link(h_dentry, h_dir, &h_path);
+	if (!err && !h_path.dentry->d_inode) {
+		delegated = NULL;
+		err = vfsub_link(h_dentry, h_dir, &h_path, &delegated);
+		if (unlikely(err == -EWOULDBLOCK)) {
+			pr_warn("cannot retry for NFSv4 delegation"
+				" for an internal link\n");
+			iput(delegated);
+		}
+	}
 	dput(h_path.dentry);
 
 out:
