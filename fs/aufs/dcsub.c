@@ -106,6 +106,7 @@ out:
 	return err;
 }
 
+/* try d_walk() in linux/fs/dcache.c */
 int au_dcsub_pages(struct au_dcsub_pages *dpages, struct dentry *root,
 		   au_dpages_test test, void *arg)
 {
