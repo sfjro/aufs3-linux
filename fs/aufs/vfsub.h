@@ -74,7 +74,7 @@ extern struct lglock files_lglock;
 /* default MAX_LOCKDEP_SUBCLASSES(8) is not enough */
 /* reduce? gave up. */
 enum {
-	AuLsc_I_Begin = I_MUTEX_QUOTA, /* 4 */
+	AuLsc_I_Begin = I_MUTEX_NONDIR2, /* 4 */
 	AuLsc_I_PARENT,		/* lower inode, parent first */
 	AuLsc_I_PARENT2,	/* copyup dirs */
 	AuLsc_I_PARENT3,	/* copyup wh */
