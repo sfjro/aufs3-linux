@@ -176,7 +176,7 @@ int au_whtmp_ren(struct dentry *h_dentry, struct au_branch *br)
 	struct path h_path = {
 		.mnt = au_br_mnt(br)
 	};
-	struct inode *h_dir;
+	struct inode *h_dir, *delegated;
 	struct dentry *h_parent;
 
 	h_parent = h_dentry->d_parent; /* dir inode is locked */
@@ -189,8 +189,14 @@ int au_whtmp_ren(struct dentry *h_dentry, struct au_branch *br)
 		goto out;
 
 	/* under the same dir, no need to lock_rename() */
-	err = vfsub_rename(h_dir, h_dentry, h_dir, &h_path);
+	delegated = NULL;
+	err = vfsub_rename(h_dir, h_dentry, h_dir, &h_path, &delegated);
 	AuTraceErr(err);
+	if (unlikely(err == -EWOULDBLOCK)) {
+		pr_warn("cannot retry for NFSv4 delegation"
+			" for an internal rename\n");
+		iput(delegated);
+	}
 	dput(h_path.dentry);
 
 out:

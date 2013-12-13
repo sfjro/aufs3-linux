@@ -613,7 +613,8 @@ static int au_do_ren_after_cpup(struct au_cp_generic *cpg, struct path *h_path)
 	h_dir = h_parent->d_inode;
 	IMustLock(h_dir);
 	AuDbg("%.*s %.*s\n", AuDLNPair(h_dentry), AuDLNPair(h_path->dentry));
-	err = vfsub_rename(h_dir, h_dentry, h_dir, h_path);
+	/* no delegation since it is just created */
+	err = vfsub_rename(h_dir, h_dentry, h_dir, h_path, /*delegated*/NULL);
 	dput(h_path->dentry);
 
 out:

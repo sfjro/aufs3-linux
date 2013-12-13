@@ -291,7 +291,8 @@ out:
 }
 
 int vfsub_rename(struct inode *src_dir, struct dentry *src_dentry,
-		 struct inode *dir, struct path *path)
+		 struct inode *dir, struct path *path,
+		 struct inode **delegated_inode)
 {
 	int err;
 	struct path tmp = {
@@ -311,7 +312,8 @@ int vfsub_rename(struct inode *src_dir, struct dentry *src_dentry,
 		goto out;
 
 	lockdep_off();
-	err = vfs_rename(src_dir, src_dentry, dir, path->dentry);
+	err = vfs_rename(src_dir, src_dentry, dir, path->dentry,
+			 delegated_inode);
 	lockdep_on();
 	if (!err) {
 		int did;
