@@ -708,6 +708,7 @@ struct unlink_args {
 	int *errp;
 	struct inode *dir;
 	struct path *path;
+	struct inode **delegated_inode;
 };
 
 static void call_unlink(void *args)
@@ -733,7 +734,7 @@ static void call_unlink(void *args)
 		ihold(h_inode);
 
 	lockdep_off();
-	*a->errp = vfs_unlink(a->dir, d);
+	*a->errp = vfs_unlink(a->dir, d, a->delegated_inode);
 	lockdep_on();
 	if (!*a->errp) {
 		struct path tmp = {
@@ -755,13 +756,15 @@ static void call_unlink(void *args)
  * @dir: must be locked.
  * @dentry: target dentry.
  */
-int vfsub_unlink(struct inode *dir, struct path *path, int force)
+int vfsub_unlink(struct inode *dir, struct path *path,
+		 struct inode **delegated_inode, int force)
 {
 	int err;
 	struct unlink_args args = {
-		.errp	= &err,
-		.dir	= dir,
-		.path	= path
+		.errp			= &err,
+		.dir			= dir,
+		.path			= path,
+		.delegated_inode	= delegated_inode
 	};
 
 	if (!force)

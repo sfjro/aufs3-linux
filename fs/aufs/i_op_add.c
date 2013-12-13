@@ -294,7 +294,9 @@ static int add_simple(struct inode *dir, struct dentry *dentry,
 	/* revert */
 	if (unlikely(created && err && a->h_path.dentry->d_inode)) {
 		int rerr;
-		rerr = vfsub_unlink(h_dir, &a->h_path, /*force*/0);
+		/* no delegation since it is just created */
+		rerr = vfsub_unlink(h_dir, &a->h_path, /*delegated*/NULL,
+				    /*force*/0);
 		if (rerr) {
 			AuIOErr("%.*s revert failure(%d, %d)\n",
 				AuDLNPair(dentry), err, rerr);
@@ -491,7 +493,7 @@ int aufs_link(struct dentry *src_dentry, struct inode *dir,
 	struct au_dtime dt;
 	struct au_link_args *a;
 	struct dentry *wh_dentry, *h_src_dentry;
-	struct inode *inode;
+	struct inode *inode, *delegated;
 	struct super_block *sb;
 	struct au_wr_dir_args wr_dir_args = {
 		/* .force_btgt	= -1, */
@@ -603,7 +605,9 @@ int aufs_link(struct dentry *src_dentry, struct inode *dir,
 	goto out_unpin; /* success */
 
 out_revert:
-	rerr = vfsub_unlink(au_pinned_h_dir(&a->pin), &a->h_path, /*force*/0);
+	/* no delegation since it is just created */
+	rerr = vfsub_unlink(au_pinned_h_dir(&a->pin), &a->h_path,
+			    /*delegated*/NULL, /*force*/0);
 	if (unlikely(rerr)) {
 		AuIOErr("%.*s reverting failed(%d, %d)\n",
 			AuDLNPair(dentry), err, rerr);

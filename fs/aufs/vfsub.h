@@ -308,7 +308,8 @@ int vfsub_sio_notify_change(struct path *path, struct iattr *ia,
 			    struct inode **delegated_inode);
 int vfsub_notify_change(struct path *path, struct iattr *ia,
 			struct inode **delegated_inode);
-int vfsub_unlink(struct inode *dir, struct path *path, int force);
+int vfsub_unlink(struct inode *dir, struct path *path,
+		 struct inode **delegated_inode, int force);
 
 #endif /* __KERNEL__ */
 #endif /* __AUFS_VFSUB_H__ */

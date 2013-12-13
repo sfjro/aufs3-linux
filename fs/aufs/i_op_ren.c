@@ -142,7 +142,9 @@ static void au_ren_rev_cpup(int err, struct au_ren_args *a)
 	int rerr;
 
 	a->h_path.dentry = a->dst_h_dentry;
-	rerr = vfsub_unlink(a->dst_h_dir, &a->h_path, /*force*/0);
+	/* no delegation since it is just created */
+	rerr = vfsub_unlink(a->dst_h_dir, &a->h_path, /*delegated*/NULL,
+			    /*force*/0);
 	au_set_h_dptr(a->src_dentry, a->btgt, NULL);
 	au_set_dbstart(a->src_dentry, a->src_bstart);
 	if (rerr)

@@ -633,7 +633,7 @@ static int au_cpup_single(struct au_cp_generic *cpg, struct dentry *dst_parent)
 	aufs_bindex_t old_ibstart;
 	unsigned char isdir, plink;
 	struct dentry *h_src, *h_dst, *h_parent;
-	struct inode *dst_inode, *h_dir, *inode;
+	struct inode *dst_inode, *h_dir, *inode, *delegated;
 	struct super_block *sb;
 	struct au_branch *br;
 	/* to reuduce stack size */
@@ -770,9 +770,11 @@ out_rev:
 	a->h_path.dentry = h_dst;
 	rerr = 0;
 	if (h_dst->d_inode) {
-		if (!isdir)
-			rerr = vfsub_unlink(h_dir, &a->h_path, /*force*/0);
-		else
+		if (!isdir) {
+			/* no delegation since it is just created */
+			rerr = vfsub_unlink(h_dir, &a->h_path,
+					    /*delegated*/NULL, /*force*/0);
+		} else
 			rerr = vfsub_rmdir(h_dir, &a->h_path);
 	}
 	au_dtime_revert(&a->dt);
@@ -1054,9 +1056,11 @@ static int au_cpup_wh(struct au_cp_generic *cpg, struct file *file)
 
 	dget(wh_dentry);
 	h_path.dentry = wh_dentry;
-	if (!S_ISDIR(wh_dentry->d_inode->i_mode))
-		err = vfsub_unlink(h_parent->d_inode, &h_path, /*force*/0);
-	else
+	if (!S_ISDIR(wh_dentry->d_inode->i_mode)) {
+		/* no delegation since it is just created */
+		err = vfsub_unlink(h_parent->d_inode, &h_path,
+				   /*delegated*/NULL, /*force*/0);
+	} else
 		err = vfsub_rmdir(h_parent->d_inode, &h_path);
 	if (unlikely(err)) {
 		AuIOErr("failed remove copied-up tmp file %.*s(%d)\n",
