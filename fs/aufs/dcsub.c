@@ -106,6 +106,7 @@ out:
 	return err;
 }
 
+/* try d_walk() in linux/fs/dcache.c */
 int au_dcsub_pages(struct au_dcsub_pages *dpages, struct dentry *root,
 		   au_dpages_test test, void *arg)
 {
@@ -197,7 +198,7 @@ int au_dcsub_pages_rev(struct au_dcsub_pages *dpages, struct dentry *dentry,
 		goto out;
 
 	/*
-	 * vfsmount_lock is unnecessary since this is a traverse in a single
+	 * RCU for vfsmount is unnecessary since this is a traverse in a single
 	 * mount
 	 */
 	while (!IS_ROOT(dentry)) {

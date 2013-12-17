@@ -167,6 +167,7 @@ static int au_do_unlink_wh(const unsigned char dmsg, struct au_mvd_args *a)
 	int err;
 	struct path h_path;
 	struct au_branch *br;
+	struct inode *delegated;
 
 	br = au_sbr(a->sb, a->mvd_bdst);
 	h_path.dentry = au_wh_lkup(a->mvd_h_dst_parent, &a->dentry->d_name, br);
@@ -179,8 +180,14 @@ static int au_do_unlink_wh(const unsigned char dmsg, struct au_mvd_args *a)
 	err = 0;
 	if (h_path.dentry->d_inode) {
 		h_path.mnt = au_br_mnt(br);
+		delegated = NULL;
 		err = vfsub_unlink(a->mvd_h_dst_parent->d_inode, &h_path,
-				   /*force*/0);
+				   &delegated, /*force*/0);
+		if (unlikely(err == -EWOULDBLOCK)) {
+			pr_warn("cannot retry for NFSv4 delegation"
+				" for an internal unlink\n");
+			iput(delegated);
+		}
 		if (unlikely(err))
 			AU_MVD_PR(dmsg, "wh_unlink failed\n");
 	}
@@ -200,10 +207,17 @@ static int au_do_unlink(const unsigned char dmsg, struct au_mvd_args *a)
 {
 	int err;
 	struct path h_path;
+	struct inode *delegated;
 
 	h_path.mnt = au_sbr_mnt(a->sb, a->mvd_bsrc);
 	h_path.dentry = au_h_dptr(a->dentry, a->mvd_bsrc);
-	err = vfsub_unlink(a->mvd_h_src_dir, &h_path, /*force*/0);
+	delegated = NULL;
+	err = vfsub_unlink(a->mvd_h_src_dir, &h_path, &delegated, /*force*/0);
+	if (unlikely(err == -EWOULDBLOCK)) {
+		pr_warn("cannot retry for NFSv4 delegation"
+			" for an internal unlink\n");
+		iput(delegated);
+	}
 	if (unlikely(err))
 		AU_MVD_PR(dmsg, "unlink failed\n");
 
