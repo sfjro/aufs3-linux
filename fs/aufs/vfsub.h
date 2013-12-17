@@ -32,41 +32,8 @@
 
 /* copied from linux/fs/internal.h */
 /* todo: BAD approach!! */
-extern struct lglock vfsmount_lock;
 extern void __mnt_drop_write(struct vfsmount *);
 extern spinlock_t inode_sb_list_lock;
-void __file_sb_list_add(struct file *file, struct super_block *sb);
-
-/* copied from linux/fs/file_table.c */
-extern struct lglock files_lglock;
-#ifdef CONFIG_SMP
-/*
- * These macros iterate all files on all CPUs for a given superblock.
- * files_lglock must be held globally.
- */
-#define do_file_list_for_each_entry(__sb, __file)		\
-{								\
-	int i;							\
-	for_each_possible_cpu(i) {				\
-		struct list_head *list;				\
-		list = per_cpu_ptr((__sb)->s_files, i);		\
-		list_for_each_entry((__file), list, f_u.fu_list)
-
-#define while_file_list_for_each_entry				\
-	}							\
-}
-
-#else
-
-#define do_file_list_for_each_entry(__sb, __file)		\
-{								\
-	struct list_head *list;					\
-	list = &(sb)->s_files;					\
-	list_for_each_entry((__file), list, f_u.fu_list)
-
-#define while_file_list_for_each_entry				\
-}
-#endif
 
 /* ---------------------------------------------------------------------- */
 
@@ -74,7 +41,7 @@ extern struct lglock files_lglock;
 /* default MAX_LOCKDEP_SUBCLASSES(8) is not enough */
 /* reduce? gave up. */
 enum {
-	AuLsc_I_Begin = I_MUTEX_QUOTA, /* 4 */
+	AuLsc_I_Begin = I_MUTEX_NONDIR2, /* 4 */
 	AuLsc_I_PARENT,		/* lower inode, parent first */
 	AuLsc_I_PARENT2,	/* copyup dirs */
 	AuLsc_I_PARENT3,	/* copyup wh */
@@ -173,9 +140,10 @@ int vfsub_symlink(struct inode *dir, struct path *path,
 		  const char *symname);
 int vfsub_mknod(struct inode *dir, struct path *path, int mode, dev_t dev);
 int vfsub_link(struct dentry *src_dentry, struct inode *dir,
-	       struct path *path);
+	       struct path *path, struct inode **delegated_inode);
 int vfsub_rename(struct inode *src_hdir, struct dentry *src_dentry,
-		 struct inode *hdir, struct path *path);
+		 struct inode *hdir, struct path *path,
+		 struct inode **delegated_inode);
 int vfsub_mkdir(struct inode *dir, struct path *path, int mode);
 int vfsub_rmdir(struct inode *dir, struct path *path);
 
@@ -304,9 +272,12 @@ static inline fmode_t vfsub_uint_to_fmode(unsigned int ui)
 
 int vfsub_sio_mkdir(struct inode *dir, struct path *path, int mode);
 int vfsub_sio_rmdir(struct inode *dir, struct path *path);
-int vfsub_sio_notify_change(struct path *path, struct iattr *ia);
-int vfsub_notify_change(struct path *path, struct iattr *ia);
-int vfsub_unlink(struct inode *dir, struct path *path, int force);
+int vfsub_sio_notify_change(struct path *path, struct iattr *ia,
+			    struct inode **delegated_inode);
+int vfsub_notify_change(struct path *path, struct iattr *ia,
+			struct inode **delegated_inode);
+int vfsub_unlink(struct inode *dir, struct path *path,
+		 struct inode **delegated_inode, int force);
 
 #endif /* __KERNEL__ */
 #endif /* __AUFS_VFSUB_H__ */

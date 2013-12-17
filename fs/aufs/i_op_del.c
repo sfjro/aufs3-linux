@@ -299,7 +299,7 @@ int aufs_unlink(struct inode *dir, struct dentry *dentry)
 {
 	int err;
 	aufs_bindex_t bwh, bindex, bstart;
-	struct inode *inode, *h_dir;
+	struct inode *inode, *h_dir, *delegated;
 	struct dentry *parent, *wh_dentry;
 	/* to reuduce stack size */
 	struct {
@@ -343,7 +343,13 @@ int aufs_unlink(struct inode *dir, struct dentry *dentry)
 	dget(a->h_path.dentry);
 	if (bindex == bstart) {
 		h_dir = au_pinned_h_dir(&a->pin);
-		err = vfsub_unlink(h_dir, &a->h_path, /*force*/0);
+		delegated = NULL;
+		err = vfsub_unlink(h_dir, &a->h_path, &delegated, /*force*/0);
+		if (unlikely(err == -EWOULDBLOCK)) {
+			pr_warn("cannot retry for NFSv4 delegation"
+				" for an internal unlink\n");
+			iput(delegated);
+		}
 	} else {
 		/* dir inode is locked */
 		h_dir = wh_dentry->d_parent->d_inode;

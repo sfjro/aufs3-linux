@@ -294,7 +294,9 @@ static int add_simple(struct inode *dir, struct dentry *dentry,
 	/* revert */
 	if (unlikely(created && err && a->h_path.dentry->d_inode)) {
 		int rerr;
-		rerr = vfsub_unlink(h_dir, &a->h_path, /*force*/0);
+		/* no delegation since it is just created */
+		rerr = vfsub_unlink(h_dir, &a->h_path, /*delegated*/NULL,
+				    /*force*/0);
 		if (rerr) {
 			AuIOErr("%.*s revert failure(%d, %d)\n",
 				AuDLNPair(dentry), err, rerr);
@@ -405,7 +407,7 @@ static int au_cpup_or_link(struct dentry *src_dentry, struct dentry *dentry,
 	unsigned char plink;
 	aufs_bindex_t bend;
 	struct dentry *h_src_dentry;
-	struct inode *h_inode, *inode;
+	struct inode *h_inode, *inode, *delegated;
 	struct super_block *sb;
 	struct file *h_file;
 
@@ -466,8 +468,14 @@ static int au_cpup_or_link(struct dentry *src_dentry, struct dentry *dentry,
 
 		}
 		if (h_src_dentry) {
+			delegated = NULL;
 			err = vfsub_link(h_src_dentry, au_pinned_h_dir(&a->pin),
-					 &a->h_path);
+					 &a->h_path, &delegated);
+			if (unlikely(err == -EWOULDBLOCK)) {
+				pr_warn("cannot retry for NFSv4 delegation"
+					" for an internal link\n");
+				iput(delegated);
+			}
 			dput(h_src_dentry);
 		} else {
 			AuIOErr("no dentry found for hi%lu on b%d\n",
@@ -491,7 +499,7 @@ int aufs_link(struct dentry *src_dentry, struct inode *dir,
 	struct au_dtime dt;
 	struct au_link_args *a;
 	struct dentry *wh_dentry, *h_src_dentry;
-	struct inode *inode;
+	struct inode *inode, *delegated;
 	struct super_block *sb;
 	struct au_wr_dir_args wr_dir_args = {
 		/* .force_btgt	= -1, */
@@ -548,9 +556,16 @@ int aufs_link(struct dentry *src_dentry, struct inode *dir,
 		if (a->bdst < a->bsrc
 		    /* && h_src_dentry->d_sb != a->h_path.dentry->d_sb */)
 			err = au_cpup_or_link(src_dentry, dentry, a);
-		else
+		else {
+			delegated = NULL;
 			err = vfsub_link(h_src_dentry, au_pinned_h_dir(&a->pin),
-					 &a->h_path);
+					 &a->h_path, &delegated);
+			if (unlikely(err == -EWOULDBLOCK)) {
+				pr_warn("cannot retry for NFSv4 delegation"
+					" for an internal link\n");
+				iput(delegated);
+			}
+		}
 		dput(h_src_dentry);
 	} else {
 		/*
@@ -574,10 +589,18 @@ int aufs_link(struct dentry *src_dentry, struct inode *dir,
 		if (!err) {
 			h_src_dentry = au_h_dptr(src_dentry, a->bdst);
 			err = -ENOENT;
-			if (h_src_dentry && h_src_dentry->d_inode)
+			if (h_src_dentry && h_src_dentry->d_inode) {
+				delegated = NULL;
 				err = vfsub_link(h_src_dentry,
 						 au_pinned_h_dir(&a->pin),
-						 &a->h_path);
+						 &a->h_path, &delegated);
+				if (unlikely(err == -EWOULDBLOCK)) {
+					pr_warn("cannot retry"
+						" for NFSv4 delegation"
+						" for an internal link\n");
+					iput(delegated);
+				}
+			}
 		}
 	}
 	if (unlikely(err))
@@ -603,7 +626,9 @@ int aufs_link(struct dentry *src_dentry, struct inode *dir,
 	goto out_unpin; /* success */
 
 out_revert:
-	rerr = vfsub_unlink(au_pinned_h_dir(&a->pin), &a->h_path, /*force*/0);
+	/* no delegation since it is just created */
+	rerr = vfsub_unlink(au_pinned_h_dir(&a->pin), &a->h_path,
+			    /*delegated*/NULL, /*force*/0);
 	if (unlikely(rerr)) {
 		AuIOErr("%.*s reverting failed(%d, %d)\n",
 			AuDLNPair(dentry), err, rerr);

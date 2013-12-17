@@ -118,6 +118,7 @@ static void au_ren_rev_diropq(int err, struct au_ren_args *a)
 static void au_ren_rev_rename(int err, struct au_ren_args *a)
 {
 	int rerr;
+	struct inode *delegated;
 
 	a->h_path.dentry = vfsub_lkup_one(&a->src_dentry->d_name,
 					  a->src_h_parent);
@@ -127,9 +128,15 @@ static void au_ren_rev_rename(int err, struct au_ren_args *a)
 		return;
 	}
 
+	delegated = NULL;
 	rerr = vfsub_rename(a->dst_h_dir,
 			    au_h_dptr(a->src_dentry, a->btgt),
-			    a->src_h_dir, &a->h_path);
+			    a->src_h_dir, &a->h_path, &delegated);
+	if (unlikely(rerr == -EWOULDBLOCK)) {
+		pr_warn("cannot retry for NFSv4 delegation"
+			" for an internal rename\n");
+		iput(delegated);
+	}
 	d_drop(a->h_path.dentry);
 	dput(a->h_path.dentry);
 	/* au_set_h_dptr(a->src_dentry, a->btgt, NULL); */
@@ -142,7 +149,9 @@ static void au_ren_rev_cpup(int err, struct au_ren_args *a)
 	int rerr;
 
 	a->h_path.dentry = a->dst_h_dentry;
-	rerr = vfsub_unlink(a->dst_h_dir, &a->h_path, /*force*/0);
+	/* no delegation since it is just created */
+	rerr = vfsub_unlink(a->dst_h_dir, &a->h_path, /*delegated*/NULL,
+			    /*force*/0);
 	au_set_h_dptr(a->src_dentry, a->btgt, NULL);
 	au_set_dbstart(a->src_dentry, a->src_bstart);
 	if (rerr)
@@ -152,6 +161,7 @@ static void au_ren_rev_cpup(int err, struct au_ren_args *a)
 static void au_ren_rev_whtmp(int err, struct au_ren_args *a)
 {
 	int rerr;
+	struct inode *delegated;
 
 	a->h_path.dentry = vfsub_lkup_one(&a->dst_dentry->d_name,
 					  a->dst_h_parent);
@@ -166,7 +176,14 @@ static void au_ren_rev_whtmp(int err, struct au_ren_args *a)
 		return;
 	}
 
-	rerr = vfsub_rename(a->dst_h_dir, a->h_dst, a->dst_h_dir, &a->h_path);
+	delegated = NULL;
+	rerr = vfsub_rename(a->dst_h_dir, a->h_dst, a->dst_h_dir, &a->h_path,
+			    &delegated);
+	if (unlikely(rerr == -EWOULDBLOCK)) {
+		pr_warn("cannot retry for NFSv4 delegation"
+			" for an internal rename\n");
+		iput(delegated);
+	}
 	d_drop(a->h_path.dentry);
 	dput(a->h_path.dentry);
 	if (!rerr)
@@ -198,6 +215,7 @@ static int au_ren_or_cpup(struct au_ren_args *a)
 {
 	int err;
 	struct dentry *d;
+	struct inode *delegated;
 
 	d = a->src_dentry;
 	if (au_dbstart(d) == a->btgt) {
@@ -206,8 +224,14 @@ static int au_ren_or_cpup(struct au_ren_args *a)
 		    && au_dbdiropq(d) == a->btgt)
 			au_fclr_ren(a->flags, DIROPQ);
 		AuDebugOn(au_dbstart(d) != a->btgt);
+		delegated = NULL;
 		err = vfsub_rename(a->src_h_dir, au_h_dptr(d, a->btgt),
-				   a->dst_h_dir, &a->h_path);
+				   a->dst_h_dir, &a->h_path, &delegated);
+		if (unlikely(err == -EWOULDBLOCK)) {
+			pr_warn("cannot retry for NFSv4 delegation"
+				" for an internal rename\n");
+			iput(delegated);
+		}
 	} else
 		BUG();
 

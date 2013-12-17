@@ -52,11 +52,8 @@ int au_do_open_nondir(struct file *file, int flags)
 		au_set_fbstart(file, bindex);
 		au_set_h_fptr(file, bindex, h_file);
 		au_update_figen(file);
-		if (!(file->f_mode & FMODE_WRITE)) {
-			lg_local_lock(&files_lglock);
-			__file_sb_list_add(file, dentry->d_sb);
-			lg_local_unlock(&files_lglock);
-		}
+		finfo->fi_file = file;
+		au_sphl_add(&finfo->fi_hlist, &au_sbi(dentry->d_sb)->si_files);
 		/* todo: necessary? */
 		/* file->f_ra = h_file->f_ra; */
 	}
@@ -88,6 +85,7 @@ int aufs_release_nondir(struct inode *inode __maybe_unused, struct file *file)
 	aufs_bindex_t bindex;
 
 	finfo = au_fi(file);
+	au_sphl_del(&finfo->fi_hlist, &au_sbi(file->f_dentry->d_sb)->si_files);
 	bindex = finfo->fi_btop;
 	if (bindex >= 0)
 		au_set_h_fptr(file, bindex, NULL);
@@ -627,7 +625,7 @@ static int aufs_aio_fsync_nondir(struct kiocb *kio, int datasync)
 
 	err = -ENOSYS;
 	h_file = au_hf_top(file);
-	if (h_file->f_op && h_file->f_op->aio_fsync) {
+	if (h_file->f_op->aio_fsync) {
 		struct mutex *h_mtx;
 
 		h_mtx = &file_inode(h_file)->i_mutex;
@@ -670,7 +668,7 @@ static int aufs_fasync(int fd, struct file *file, int flag)
 		goto out;
 
 	h_file = au_hf_top(file);
-	if (h_file->f_op && h_file->f_op->fasync)
+	if (h_file->f_op->fasync)
 		err = h_file->f_op->fasync(fd, h_file, flag);
 
 	di_read_unlock(dentry, AuLock_IR);
