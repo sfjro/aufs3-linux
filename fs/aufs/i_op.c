@@ -740,7 +740,7 @@ out:
 static int aufs_setattr(struct dentry *dentry, struct iattr *ia)
 {
 	int err;
-	struct inode *inode;
+	struct inode *inode, *delegated;
 	struct super_block *sb;
 	struct file *file;
 	struct au_icpup_args *a;
@@ -820,8 +820,18 @@ static int aufs_setattr(struct dentry *dentry, struct iattr *ia)
 		mutex_unlock(&a->h_inode->i_mutex);
 		err = vfsub_trunc(&a->h_path, ia->ia_size, ia->ia_valid, f);
 		mutex_lock_nested(&a->h_inode->i_mutex, AuLsc_I_CHILD);
-	} else
-		err = vfsub_notify_change(&a->h_path, ia);
+	} else {
+		delegated = NULL;
+		while (1) {
+			err = vfsub_notify_change(&a->h_path, ia, &delegated);
+			if (delegated) {
+				err = break_deleg_wait(&delegated);
+				if (!err)
+					continue;
+			}
+			break;
+		}
+	}
 	if (!err)
 		au_cpup_attr_changeable(inode);
 

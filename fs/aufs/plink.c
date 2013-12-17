@@ -258,7 +258,7 @@ static int do_whplink(struct qstr *tgt, struct dentry *h_parent,
 	struct path h_path = {
 		.mnt = au_br_mnt(br)
 	};
-	struct inode *h_dir;
+	struct inode *h_dir, *delegated;
 
 	h_dir = h_parent->d_inode;
 	mutex_lock_nested(&h_dir->i_mutex, AuLsc_I_CHILD2);
@@ -273,14 +273,27 @@ again:
 	/* todo: is it really safe? */
 	if (h_path.dentry->d_inode
 	    && h_path.dentry->d_inode != h_dentry->d_inode) {
-		err = vfsub_unlink(h_dir, &h_path, /*force*/0);
+		delegated = NULL;
+		err = vfsub_unlink(h_dir, &h_path, &delegated, /*force*/0);
+		if (unlikely(err == -EWOULDBLOCK)) {
+			pr_warn("cannot retry for NFSv4 delegation"
+				" for an internal unlink\n");
+			iput(delegated);
+		}
 		dput(h_path.dentry);
 		h_path.dentry = NULL;
 		if (!err)
 			goto again;
 	}
-	if (!err && !h_path.dentry->d_inode)
-		err = vfsub_link(h_dentry, h_dir, &h_path);
+	if (!err && !h_path.dentry->d_inode) {
+		delegated = NULL;
+		err = vfsub_link(h_dentry, h_dir, &h_path, &delegated);
+		if (unlikely(err == -EWOULDBLOCK)) {
+			pr_warn("cannot retry for NFSv4 delegation"
+				" for an internal link\n");
+			iput(delegated);
+		}
+	}
 	dput(h_path.dentry);
 
 out:
