@@ -90,7 +90,6 @@ AuStubInt0(au_debug_test, void)
 
 /* dirty macros for debug print, use with "%.*s" and caution */
 #define AuLNPair(qstr)		(qstr)->len, (qstr)->name
-#define AuDLNPair(d)		AuLNPair(&(d)->d_name)
 
 /* ---------------------------------------------------------------------- */
 
