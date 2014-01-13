@@ -731,8 +731,11 @@ int rt6_route_rcv(struct net_device *dev, u8 *opt, int len,
 		prefix = &prefix_buf;
 	}
 
-	rt = rt6_get_route_info(net, prefix, rinfo->prefix_len, gwaddr,
-				dev->ifindex);
+	if (rinfo->prefix_len == 0)
+		rt = rt6_get_dflt_router(gwaddr, dev);
+	else
+		rt = rt6_get_route_info(net, prefix, rinfo->prefix_len,
+					gwaddr, dev->ifindex);
 
 	if (rt && !lifetime) {
 		ip6_del_rt(rt);
@@ -1087,10 +1090,13 @@ static struct dst_entry *ip6_dst_check(struct dst_entry *dst, u32 cookie)
 	if (rt->rt6i_genid != rt_genid_ipv6(dev_net(rt->dst.dev)))
 		return NULL;
 
-	if (rt->rt6i_node && (rt->rt6i_node->fn_sernum == cookie))
-		return dst;
+	if (!rt->rt6i_node || (rt->rt6i_node->fn_sernum != cookie))
+		return NULL;
 
-	return NULL;
+	if (rt6_check_expired(rt))
+		return NULL;
+
+	return dst;
 }
 
 static struct dst_entry *ip6_negative_advice(struct dst_entry *dst)
