@@ -42,6 +42,11 @@ int au_test_subdir(struct dentry *d1, struct dentry *d2);
 
 /* ---------------------------------------------------------------------- */
 
+/*
+ * todo: in linux-3.13, several similar (but faster) helpers are added to
+ * include/linux/dcache.h. Try them (in the future).
+ */
+
 static inline int au_d_hashed_positive(struct dentry *d)
 {
 	int err;

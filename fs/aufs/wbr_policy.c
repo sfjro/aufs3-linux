@@ -161,8 +161,8 @@ out_opq:
 		rerr = au_diropq_remove(dentry, bdst);
 		mutex_unlock(&h_inode->i_mutex);
 		if (unlikely(rerr)) {
-			AuIOErr("failed removing diropq for %.*s b%d (%d)\n",
-				AuDLNPair(dentry), bdst, rerr);
+			AuIOErr("failed removing diropq for %pd b%d (%d)\n",
+				dentry, bdst, rerr);
 			err = -EIO;
 			goto out;
 		}
@@ -171,8 +171,8 @@ out_dir:
 	if (au_ftest_cpdown(*flags, MADE_DIR)) {
 		rerr = vfsub_sio_rmdir(au_h_iptr(dir, bdst), &h_path);
 		if (unlikely(rerr)) {
-			AuIOErr("failed removing %.*s b%d (%d)\n",
-				AuDLNPair(dentry), bdst, rerr);
+			AuIOErr("failed removing %pd b%d (%d)\n",
+				dentry, bdst, rerr);
 			err = -EIO;
 		}
 	}

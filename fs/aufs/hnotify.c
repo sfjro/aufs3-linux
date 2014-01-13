@@ -344,8 +344,7 @@ static int hn_job(struct hn_job_args *a)
 	if (au_ftest_hnjob(a->flags, MNTPNT)
 	    && a->dentry
 	    && d_mountpoint(a->dentry))
-		pr_warn("mount-point %.*s is removed or renamed\n",
-			AuDLNPair(a->dentry));
+		pr_warn("mount-point %pd is removed or renamed\n", a->dentry);
 
 	return 0;
 }
@@ -365,7 +364,7 @@ static struct dentry *lookup_wlock_by_name(char *name, unsigned int nlen,
 	dentry = NULL;
 	spin_lock(&parent->d_lock);
 	list_for_each_entry(d, &parent->d_subdirs, d_u.d_child) {
-		/* AuDbg("%.*s\n", AuDLNPair(d)); */
+		/* AuDbg("%pd\n", d); */
 		spin_lock_nested(&d->d_lock, DENTRY_D_LOCK_NESTED);
 		dname = &d->d_name;
 		if (dname->len != nlen || memcmp(dname->name, name, nlen))

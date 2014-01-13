@@ -593,7 +593,7 @@ static int au_do_ren_after_cpup(struct au_cp_generic *cpg, struct path *h_path)
 	h_parent = h_dentry->d_parent; /* dir inode is locked */
 	h_dir = h_parent->d_inode;
 	IMustLock(h_dir);
-	AuDbg("%.*s %.*s\n", AuDLNPair(h_dentry), AuDLNPair(h_path->dentry));
+	AuDbg("%pd %pd\n", h_dentry, h_path->dentry);
 	/* no delegation since it is just created */
 	err = vfsub_rename(h_dir, h_dentry, h_dir, h_path, /*delegated*/NULL);
 	dput(h_path->dentry);
@@ -1051,8 +1051,8 @@ static int au_cpup_wh(struct au_cp_generic *cpg, struct file *file)
 	} else
 		err = vfsub_rmdir(h_parent->d_inode, &h_path);
 	if (unlikely(err)) {
-		AuIOErr("failed remove copied-up tmp file %.*s(%d)\n",
-			AuDLNPair(wh_dentry), err);
+		AuIOErr("failed remove copied-up tmp file %pd(%d)\n",
+			wh_dentry, err);
 		err = -EIO;
 	}
 	au_dtime_revert(&dt);
