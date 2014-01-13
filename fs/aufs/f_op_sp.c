@@ -247,7 +247,7 @@ static int au_cpup_sp(struct dentry *dentry)
 		.flags	= AuCpup_DTIME
 	};
 
-	AuDbg("%.*s\n", AuDLNPair(dentry));
+	AuDbg("%pd\n", dentry);
 
 	di_read_unlock(dentry, AuLock_IR);
 	di_write_lock_child(dentry);
@@ -284,7 +284,7 @@ static int au_do_open_sp(struct file *file, int flags)
 		goto out;
 
 	dentry = file->f_dentry;
-	AuDbg("%.*s\n", AuDLNPair(dentry));
+	AuDbg("%pd\n", dentry);
 
 	/*
 	 * try copying-up.
