@@ -562,9 +562,7 @@ static void dump_opts(struct au_opts *opts)
 			break;
 		case Opt_xino:
 			u.xino = &opt->xino;
-			AuDbg("xino {%s %.*s}\n",
-				  u.xino->path,
-				  AuDLNPair(u.xino->file->f_dentry));
+			AuDbg("xino {%s %pD}\n", u.xino->path, u.xino->file);
 			break;
 		case Opt_trunc_xino:
 			AuLabel(trunc_xino);

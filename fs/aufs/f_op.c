@@ -63,9 +63,8 @@ static int aufs_open_nondir(struct inode *inode __maybe_unused,
 	int err;
 	struct super_block *sb;
 
-	AuDbg("%.*s, f_flags 0x%x, f_mode 0x%x\n",
-	      AuDLNPair(file->f_dentry), vfsub_file_flags(file),
-	      file->f_mode);
+	AuDbg("%pD, f_flags 0x%x, f_mode 0x%x\n",
+	      file, vfsub_file_flags(file), file->f_mode);
 
 	sb = file->f_dentry->d_sb;
 	si_read_lock(sb, AuLock_FLUSH);

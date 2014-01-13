@@ -239,8 +239,8 @@ static int renwh_and_rmdir(struct dentry *dentry, aufs_bindex_t bindex,
 
 	err = au_whtmp_rmdir(dir, bindex, h_dentry, whlist);
 	if (unlikely(err)) {
-		AuIOErr("rmdir %.*s, b%d failed, %d. ignored\n",
-			AuDLNPair(h_dentry), bindex, err);
+		AuIOErr("rmdir %pd, b%d failed, %d. ignored\n",
+			h_dentry, bindex, err);
 		err = 0;
 	}
 
@@ -287,8 +287,7 @@ static int do_revert(int err, struct inode *dir, aufs_bindex_t bindex,
 		return 0;
 	}
 
-	AuIOErr("%.*s reverting whiteout failed(%d, %d)\n",
-		AuDLNPair(dentry), err, rerr);
+	AuIOErr("%pd reverting whiteout failed(%d, %d)\n", dentry, err, rerr);
 	return -EIO;
 }
 

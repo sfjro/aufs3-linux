@@ -184,9 +184,8 @@ static int do_pri_dentry(aufs_bindex_t bindex, struct dentry *dentry)
 	}
 	/* do not call dget_parent() here */
 	/* note: access d_xxx without d_lock */
-	dpri("d%d: %p, %.*s?/%.*s, %s, cnt %d, flags 0x%x, %shashed\n",
-	     bindex, dentry,
-	     AuDLNPair(dentry->d_parent), AuDLNPair(dentry),
+	dpri("d%d: %p, %pd2?, %s, cnt %d, flags 0x%x, %shashed\n",
+	     bindex, dentry, dentry,
 	     dentry->d_sb ? au_sbtype(dentry->d_sb) : "??",
 	     d_count(dentry), dentry->d_flags,
 	     d_unhashed(dentry) ? "un" : "");

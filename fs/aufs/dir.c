@@ -360,8 +360,7 @@ static int aufs_iterate(struct file *file, struct dir_context *ctx)
 	struct inode *inode, *h_inode;
 	struct super_block *sb;
 
-	AuDbg("%.*s, ctx{%pf, %llu}\n",
-	      AuDLNPair(file->f_dentry), ctx->actor, ctx->pos);
+	AuDbg("%pD, ctx{%pf, %llu}\n", file, ctx->actor, ctx->pos);
 
 	dentry = file->f_dentry;
 	inode = dentry->d_inode;
