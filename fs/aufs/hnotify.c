@@ -584,7 +584,7 @@ int au_hnotify(struct inode *h_dir, struct au_hnotify *hnotify, u32 mask,
 		au_fset_hnjob(flags[AuHn_CHILD], MNTPNT);
 		/*FALLTHROUGH*/
 	case FS_CREATE:
-		AuDebugOn(!h_child_name || !h_child_inode);
+		AuDebugOn(!h_child_name);
 		break;
 
 	case FS_DELETE:
