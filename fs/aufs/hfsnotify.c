@@ -144,27 +144,27 @@ static void au_hfsn_free_group(struct fsnotify_group *group)
 }
 
 static int au_hfsn_handle_event(struct fsnotify_group *group,
+				struct inode *inode,
 				struct fsnotify_mark *inode_mark,
 				struct fsnotify_mark *vfsmount_mark,
-				struct fsnotify_event *event)
+				u32 mask, void *data, int data_type,
+				const unsigned char *file_name)
 {
 	int err;
 	struct au_hnotify *hnotify;
 	struct inode *h_dir, *h_inode;
-	__u32 mask;
-	struct qstr h_child_qstr = QSTR_INIT(event->file_name, event->name_len);
+	struct qstr h_child_qstr = QSTR_INIT(file_name, strlen(file_name));
 
-	AuDebugOn(event->data_type != FSNOTIFY_EVENT_INODE);
+	AuDebugOn(data_type != FSNOTIFY_EVENT_INODE);
 
 	err = 0;
 	/* if FS_UNMOUNT happens, there must be another bug */
-	mask = event->mask;
 	AuDebugOn(mask & FS_UNMOUNT);
 	if (mask & (FS_IN_IGNORED | FS_UNMOUNT))
 		goto out;
 
-	h_dir = event->to_tell;
-	h_inode = event->inode;
+	h_dir = inode;
+	h_inode = NULL;
 #ifdef AuDbgHnotify
 	au_debug_on();
 	if (1 || h_child_qstr.len != sizeof(AUFS_XINO_FNAME) - 1
@@ -185,21 +185,7 @@ out:
 	return err;
 }
 
-/* isn't it waste to ask every registered 'group'? */
-/* copied from linux/fs/notify/inotify/inotify_fsnotiry.c */
-/* it should be exported to modules */
-static bool au_hfsn_should_send_event(struct fsnotify_group *group,
-				      struct inode *h_inode,
-				      struct fsnotify_mark *inode_mark,
-				      struct fsnotify_mark *vfsmount_mark,
-				      __u32 mask, void *data, int data_type)
-{
-	mask = (mask & ~FS_EVENT_ON_CHILD);
-	return inode_mark->mask & mask;
-}
-
 static struct fsnotify_ops au_hfsn_ops = {
-	.should_send_event	= au_hfsn_should_send_event,
 	.handle_event		= au_hfsn_handle_event,
 	.free_group_priv	= au_hfsn_free_group
 };
