@@ -103,7 +103,8 @@ static void au_wkq_run(struct au_wkinfo *wkinfo)
 {
 	if (au_ftest_wkq(wkinfo->flags, NEST)) {
 		if (au_wkq_test()) {
-			AuWarn1("wkq from wkq, due to a dead dir by UDBA?\n");
+			AuWarn1("wkq from wkq, unless silly-rename on NFS,"
+				" due to a dead dir by UDBA?\n");
 			AuDebugOn(au_ftest_wkq(wkinfo->flags, WAIT));
 		}
 	} else
