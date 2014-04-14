@@ -1049,7 +1049,7 @@ static int au_br_mod_files_ro(struct super_block *sb, aufs_bindex_t bindex)
 	unsigned int mnt_flags;
 	unsigned long long ull, max;
 	aufs_bindex_t br_id;
-	unsigned char verbose;
+	unsigned char verbose, writer;
 	struct file *file, *hf, **array;
 	struct inode *inode;
 	struct au_hfile *hfile;
@@ -1118,11 +1118,12 @@ static int au_br_mod_files_ro(struct super_block *sb, aufs_bindex_t bindex)
 		hf = hfile->hf_file;
 		/* fi_read_unlock(file); */
 		spin_lock(&hf->f_lock);
-		hf->f_mode &= ~FMODE_WRITE;
+		writer = !!(hf->f_mode & FMODE_WRITER);
+		hf->f_mode &= ~(FMODE_WRITE | FMODE_WRITER);
 		spin_unlock(&hf->f_lock);
-		if (!file_check_writeable(hf)) {
+		if (writer) {
+			put_write_access(file_inode(hf));
 			__mnt_drop_write(hf->f_path.mnt);
-			file_release_write(hf);
 		}
 	}
 
