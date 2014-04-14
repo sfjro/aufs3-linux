@@ -683,8 +683,8 @@ static int aufs_migratepage(struct address_space *mapping, struct page *newpage,
 static int aufs_launder_page(struct page *page)
 { AuUnsupport(); return 0; }
 static int aufs_is_partially_uptodate(struct page *page,
-				      read_descriptor_t *desc,
-				      unsigned long from)
+				      unsigned long from,
+				      unsigned long count)
 { AuUnsupport(); return 0; }
 static void aufs_is_dirty_writeback(struct page *page, bool *dirty,
 				    bool *writeback)
