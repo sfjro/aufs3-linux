@@ -616,8 +616,10 @@ int au_hnotify(struct inode *h_dir, struct au_hnotify *hnotify, u32 mask,
 		p[len] = 0;
 	}
 
+	/* NFS fires the event for silly-renamed one from kworker */
 	f = 0;
-	if (!dir->i_nlink)
+	if (!dir->i_nlink
+	    || (au_test_nfs(h_dir->i_sb) && (mask & FS_DELETE)))
 		f = AuWkq_NEST;
 	err = au_wkq_nowait(au_hn_bh, args, dir->i_sb, f);
 	if (unlikely(err)) {
