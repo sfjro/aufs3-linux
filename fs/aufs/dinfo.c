@@ -323,7 +323,8 @@ struct dentry *au_h_dptr(struct dentry *dentry, aufs_bindex_t bindex)
 
 /*
  * extended version of au_h_dptr().
- * returns a hashed and positive h_dentry in bindex, NULL, or error.
+ * returns a hashed and positive (or linkable) h_dentry in bindex, NULL, or
+ * error.
  */
 struct dentry *au_h_d_alias(struct dentry *dentry, aufs_bindex_t bindex)
 {
@@ -337,7 +338,7 @@ struct dentry *au_h_d_alias(struct dentry *dentry, aufs_bindex_t bindex)
 	if (au_dbstart(dentry) <= bindex
 	    && bindex <= au_dbend(dentry))
 		h_dentry = au_h_dptr(dentry, bindex);
-	if (h_dentry && !au_d_hashed_positive(h_dentry)) {
+	if (h_dentry && !au_d_linkable(h_dentry)) {
 		dget(h_dentry);
 		goto out; /* success */
 	}
@@ -348,7 +349,7 @@ struct dentry *au_h_d_alias(struct dentry *dentry, aufs_bindex_t bindex)
 	h_dentry = d_find_alias(h_inode);
 	if (h_dentry) {
 		if (!IS_ERR(h_dentry)) {
-			if (!au_d_hashed_positive(h_dentry))
+			if (!au_d_linkable(h_dentry))
 				goto out; /* success */
 			dput(h_dentry);
 		} else

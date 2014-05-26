@@ -511,10 +511,9 @@ int aufs_link(struct dentry *src_dentry, struct inode *dir,
 					AuLock_NOPLM | AuLock_GEN);
 	if (unlikely(err))
 		goto out_kfree;
-	err = au_d_hashed_positive(src_dentry);
-	if (unlikely(err
-		     && !(inode && (inode->i_state & I_LINKABLE))))
-			goto out_unlock;
+	err = au_d_linkable(src_dentry);
+	if (unlikely(err))
+		goto out_unlock;
 	err = au_d_may_add(dentry);
 	if (unlikely(err))
 		goto out_unlock;
