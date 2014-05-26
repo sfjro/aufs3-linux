@@ -814,7 +814,6 @@ static int h_d_revalidate(struct dentry *dentry, struct inode *inode,
 	 * {FS,I}NOTIFY.
 	 * But {fs,i}notify doesn't fire some necessary events,
 	 *	IN_ATTRIB for atime/nlink/pageio
-	 *	IN_DELETE for NFS dentry
 	 * Let's do REVAL test too.
 	 */
 	if (do_udba && inode) {
