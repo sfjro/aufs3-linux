@@ -536,6 +536,8 @@ int aufs_link(struct dentry *src_dentry, struct inode *dir,
 	a->h_path.mnt = au_sbr_mnt(sb, a->bdst);
 	a->bsrc = au_ibstart(inode);
 	h_src_dentry = au_h_d_alias(src_dentry, a->bsrc);
+	if (!h_src_dentry && au_di(src_dentry)->di_tmpfile)
+		h_src_dentry = dget(au_hi_wh(inode, a->bsrc));
 	if (!h_src_dentry) {
 		a->bsrc = au_dbstart(src_dentry);
 		h_src_dentry = au_h_d_alias(src_dentry, a->bsrc);

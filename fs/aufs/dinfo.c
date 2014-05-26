@@ -49,6 +49,7 @@ struct au_dinfo *au_di_alloc(struct super_block *sb, unsigned int lsc)
 		dinfo->di_bend = -1;
 		dinfo->di_bwh = -1;
 		dinfo->di_bdiropq = -1;
+		dinfo->di_tmpfile = 0;
 		for (i = 0; i < nbr; i++)
 			dinfo->di_hdentry[i].hd_id = -1;
 		goto out;
