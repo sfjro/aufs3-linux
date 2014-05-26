@@ -61,8 +61,11 @@ void au_cpup_attr_nlink(struct inode *inode, int force)
 
 	/*
 	 * 0 can happen in revalidating.
-	 * h_inode->i_mutex is not held, but it is harmless since once i_nlink
-	 * reaches 0, it will never become positive.
+	 * h_inode->i_mutex may not be held here, but it is harmless since once
+	 * i_nlink reaches 0, it will never become positive except O_TMPFILE
+	 * case.
+	 * todo: O_TMPFILE+linkat(AT_SYMLINK_FOLLOW) bypassing aufs may cause
+	 *	 the incorrect link count.
 	 */
 	set_nlink(inode, h_inode->i_nlink);
 
