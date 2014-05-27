@@ -341,6 +341,121 @@ int aufs_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 	return add_simple(dir, dentry, &arg);
 }
 
+int aufs_tmpfile(struct inode *dir, struct dentry *dentry, umode_t mode)
+{
+	int err;
+	aufs_bindex_t bindex;
+	struct super_block *sb;
+	struct dentry *parent, *h_parent, *h_dentry;
+	struct inode *h_dir, *inode;
+	struct vfsmount *h_mnt;
+	struct au_wr_dir_args wr_dir_args = {
+		.force_btgt	= -1,
+		.flags		= AuWrDir_TMPFILE
+	};
+
+	/* copy-up may happen */
+	mutex_lock(&dir->i_mutex);
+
+	sb = dir->i_sb;
+	err = si_read_lock(sb, AuLock_FLUSH | AuLock_NOPLM);
+	if (unlikely(err))
+		goto out;
+
+	err = au_di_init(dentry);
+	if (unlikely(err))
+		goto out_si;
+
+	err = -EBUSY;
+	parent = d_find_any_alias(dir);
+	AuDebugOn(!parent);
+	di_write_lock_parent(parent);
+	if (unlikely(parent->d_inode != dir))
+		goto out_parent;
+
+	err = au_digen_test(parent, au_sigen(sb));
+	if (unlikely(err))
+		goto out_parent;
+
+	bindex = au_dbstart(parent);
+	au_set_dbstart(dentry, bindex);
+	au_set_dbend(dentry, bindex);
+	err = au_wr_dir(dentry, /*src_dentry*/NULL, &wr_dir_args);
+	bindex = err;
+	if (unlikely(err < 0))
+		goto out_parent;
+
+	err = -EOPNOTSUPP;
+	h_dir = au_h_iptr(dir, bindex);
+	if (unlikely(!h_dir->i_op->tmpfile))
+		goto out_parent;
+
+	h_mnt = au_sbr_mnt(sb, bindex);
+	err = vfsub_mnt_want_write(h_mnt);
+	if (unlikely(err))
+		goto out_parent;
+
+	h_parent = au_h_dptr(parent, bindex);
+	err = inode_permission(h_parent->d_inode, MAY_WRITE | MAY_EXEC);
+	if (unlikely(err))
+		goto out_mnt;
+
+	err = -ENOMEM;
+	h_dentry = d_alloc(h_parent, &dentry->d_name);
+	if (unlikely(!h_dentry))
+		goto out_mnt;
+
+	err = h_dir->i_op->tmpfile(h_dir, h_dentry, mode);
+	if (unlikely(err))
+		goto out_dentry;
+
+	au_set_dbstart(dentry, bindex);
+	au_set_dbend(dentry, bindex);
+	au_set_h_dptr(dentry, bindex, dget(h_dentry));
+	inode = au_new_inode(dentry, /*must_new*/1);
+	if (IS_ERR(inode)) {
+		err = PTR_ERR(inode);
+		au_set_h_dptr(dentry, bindex, NULL);
+		au_set_dbstart(dentry, -1);
+		au_set_dbend(dentry, -1);
+	} else {
+		if (!inode->i_nlink)
+			set_nlink(inode, 1);
+		d_tmpfile(dentry, inode);
+		au_di(dentry)->di_tmpfile = 1;
+
+		/* update without i_mutex */
+		if (au_ibstart(dir) == au_dbstart(dentry))
+			au_cpup_attr_timesizes(dir);
+	}
+
+out_dentry:
+	dput(h_dentry);
+out_mnt:
+	vfsub_mnt_drop_write(h_mnt);
+out_parent:
+	di_write_unlock(parent);
+	dput(parent);
+	di_write_unlock(dentry);
+	if (!err)
+#if 0
+		/* verbose coding for lock class name */
+		au_rw_class(&au_di(dentry)->di_rwsem,
+			    au_lc_key + AuLcNonDir_DIINFO);
+#else
+		;
+#endif
+	else {
+		au_di_fin(dentry);
+		dentry->d_fsdata = NULL;
+	}
+out_si:
+	si_read_unlock(sb);
+out:
+	mutex_unlock(&dir->i_mutex);
+	return err;
+}
+
 /* ---------------------------------------------------------------------- */
 
 struct au_link_args {
@@ -498,7 +613,7 @@ int aufs_link(struct dentry *src_dentry, struct inode *dir,
 					AuLock_NOPLM | AuLock_GEN);
 	if (unlikely(err))
 		goto out_kfree;
-	err = au_d_hashed_positive(src_dentry);
+	err = au_d_linkable(src_dentry);
 	if (unlikely(err))
 		goto out_unlock;
 	err = au_d_may_add(dentry);
@@ -523,6 +638,8 @@ int aufs_link(struct dentry *src_dentry, struct inode *dir,
 	a->h_path.mnt = au_sbr_mnt(sb, a->bdst);
 	a->bsrc = au_ibstart(inode);
 	h_src_dentry = au_h_d_alias(src_dentry, a->bsrc);
+	if (!h_src_dentry && au_di(src_dentry)->di_tmpfile)
+		h_src_dentry = dget(au_hi_wh(inode, a->bsrc));
 	if (!h_src_dentry) {
 		a->bsrc = au_dbstart(src_dentry);
 		h_src_dentry = au_h_d_alias(src_dentry, a->bsrc);
