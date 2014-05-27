@@ -132,7 +132,9 @@ void au_update_ibrange(struct inode *inode, int do_put_zero)
 			struct inode *h_i;
 
 			h_i = iinfo->ii_hinode[0 + bindex].hi_inode;
-			if (h_i && !h_i->i_nlink)
+			if (h_i
+			    && !h_i->i_nlink
+			    && !(h_i->i_state & I_LINKABLE))
 				au_set_h_iptr(inode, bindex, NULL, 0);
 		}
 	}
