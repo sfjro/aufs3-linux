@@ -313,7 +313,8 @@ static int hn_job(struct hn_job_args *a)
 	    && a->inode
 	    && a->h_inode) {
 		mutex_lock_nested(&a->h_inode->i_mutex, AuLsc_I_CHILD);
-		if (!a->h_inode->i_nlink)
+		if (!a->h_inode->i_nlink
+		    && !(a->h_inode->i_state & I_LINKABLE))
 			hn_xino(a->inode, a->h_inode); /* ignore this error */
 		mutex_unlock(&a->h_inode->i_mutex);
 	}
