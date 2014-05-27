@@ -253,7 +253,7 @@ static int au_wr_dir_cpup(struct dentry *dentry, struct dentry *parent,
 		else
 			BUG();
 	}
-	if (!err && add_entry) {
+	if (!err && add_entry && !au_ftest_wrdir(add_entry, TMPFILE)) {
 		h_parent = au_h_dptr(parent, bcpup);
 		h_dir = h_parent->d_inode;
 		mutex_lock_nested(&h_dir->i_mutex, AuLsc_I_PARENT);
@@ -292,7 +292,8 @@ int au_wr_dir(struct dentry *dentry, struct dentry *src_dentry,
 	aufs_bindex_t bcpup, bstart, src_bstart;
 	const unsigned char add_entry
 		= au_ftest_wrdir(args->flags, ADD_ENTRY)
-		| au_ftest_wrdir(args->flags, TMP_WHENTRY);
+		| au_ftest_wrdir(args->flags, TMP_WHENTRY)
+		| au_ftest_wrdir(args->flags, TMPFILE);
 	struct super_block *sb;
 	struct dentry *parent;
 	struct au_sbinfo *sbinfo;
@@ -348,7 +349,9 @@ int au_wr_dir(struct dentry *dentry, struct dentry *src_dentry,
 			au_set_dbstart(dentry, bcpup);
 			au_set_dbend(dentry, bcpup);
 		}
-		AuDebugOn(add_entry && !au_h_dptr(dentry, bcpup));
+		AuDebugOn(add_entry
+			  && !au_ftest_wrdir(args->flags, TMPFILE)
+			  && !au_h_dptr(dentry, bcpup));
 	}
 
 out:
@@ -1101,8 +1104,10 @@ struct inode_operations aufs_dir_iop = {
 	.setattr	= aufs_setattr,
 	.getattr	= aufs_getattr,
 
-	.update_time	= aufs_update_time
+	.update_time	= aufs_update_time,
 	/* no support for atomic_open() */
+
+	.tmpfile	= aufs_tmpfile
 };
 
 struct inode_operations aufs_iop = {
