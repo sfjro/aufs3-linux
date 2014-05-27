@@ -156,6 +156,7 @@ extern struct inode_operations aufs_iop, aufs_symlink_iop, aufs_dir_iop;
 #define AuWrDir_ADD_ENTRY	1
 #define AuWrDir_TMP_WHENTRY	(1 << 1)
 #define AuWrDir_ISDIR		(1 << 2)
+#define AuWrDir_TMPFILE		(1 << 3)
 #define au_ftest_wrdir(flags, name)	((flags) & AuWrDir_##name)
 #define au_fset_wrdir(flags, name) \
 	do { (flags) |= AuWrDir_##name; } while (0)
@@ -186,6 +187,7 @@ int aufs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode,
 int aufs_symlink(struct inode *dir, struct dentry *dentry, const char *symname);
 int aufs_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 		bool want_excl);
+int aufs_tmpfile(struct inode *dir, struct dentry *dentry, umode_t mode);
 int aufs_link(struct dentry *src_dentry, struct inode *dir,
 	      struct dentry *dentry);
 int aufs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode);

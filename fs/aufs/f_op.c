@@ -32,6 +32,7 @@ int au_do_open_nondir(struct file *file, int flags)
 	struct file *h_file;
 	struct dentry *dentry;
 	struct au_finfo *finfo;
+	struct inode *h_inode;
 
 	FiMustWriteLock(file);
 
@@ -45,6 +46,13 @@ int au_do_open_nondir(struct file *file, int flags)
 	if (IS_ERR(h_file))
 		err = PTR_ERR(h_file);
 	else {
+		if ((flags & __O_TMPFILE)
+		    && !(flags & O_EXCL)) {
+			h_inode = file_inode(h_file);
+			spin_lock(&h_inode->i_lock);
+			h_inode->i_state |= I_LINKABLE;
+			spin_unlock(&h_inode->i_lock);
+		}
 		au_set_fbstart(file, bindex);
 		au_set_h_fptr(file, bindex, h_file);
 		au_update_figen(file);
