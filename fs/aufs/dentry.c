@@ -710,7 +710,7 @@ int au_refresh_dentry(struct dentry *dentry, struct dentry *parent)
 	if (!ebrange)
 		ebrange = au_do_refresh_hdentry(dentry, parent);
 
-	if (d_unhashed(dentry) || ebrange) {
+	if (d_unhashed(dentry) || ebrange /* || dinfo->di_tmpfile */) {
 		AuDebugOn(au_dbstart(dentry) < 0 && au_dbend(dentry) >= 0);
 		if (inode)
 			err = au_refresh_hinode_self(inode);
@@ -797,7 +797,7 @@ static int h_d_revalidate(struct dentry *dentry, struct inode *inode,
 	int err;
 	umode_t mode, h_mode;
 	aufs_bindex_t bindex, btail, bstart, ibs, ibe;
-	unsigned char plus, unhashed, is_root, h_plus, h_nfs;
+	unsigned char plus, unhashed, is_root, h_plus, h_nfs, tmpfile;
 	struct inode *h_inode, *h_cached_inode;
 	struct dentry *h_dentry;
 	struct qstr *name, *h_name;
@@ -810,6 +810,7 @@ static int h_d_revalidate(struct dentry *dentry, struct inode *inode,
 	unhashed = !!d_unhashed(dentry);
 	is_root = !!IS_ROOT(dentry);
 	name = &dentry->d_name;
+	tmpfile = au_di(dentry)->di_tmpfile;
 
 	/*
 	 * Theoretically, REVAL test should be unnecessary in case of
@@ -843,18 +844,21 @@ static int h_d_revalidate(struct dentry *dentry, struct inode *inode,
 			     && !is_root
 			     && ((!h_nfs
 				  && (unhashed != !!d_unhashed(h_dentry)
-				      || name->len != h_name->len
-				      || memcmp(name->name, h_name->name,
-						name->len)))
+				      || (!tmpfile
+					  && !au_qstreq(name, h_name))
+					  ))
 				 || (h_nfs
 				     && !(flags & LOOKUP_OPEN)
 				     && (h_dentry->d_flags
 					 & DCACHE_NFSFS_RENAMED)))
 			    )) {
-			AuDbg("unhash 0x%x 0x%x, %.*s %.*s\n",
-				  unhashed, d_unhashed(h_dentry),
-				  AuDLNPair(dentry), AuDLNPair(h_dentry));
+			int h_unhashed;
+
+			h_unhashed = d_unhashed(h_dentry);
 			spin_unlock(&h_dentry->d_lock);
+			AuDbg("unhash 0x%x 0x%x, %.*s %.*s\n",
+			      unhashed, h_unhashed,
+			      AuDLNPair(dentry), AuDLNPair(h_dentry));
 			goto err;
 		}
 		spin_unlock(&h_dentry->d_lock);
@@ -884,7 +888,7 @@ static int h_d_revalidate(struct dentry *dentry, struct inode *inode,
 			h_cached_inode = au_h_iptr(inode, bindex);
 
 		if (!h_nfs) {
-			if (unlikely(plus != h_plus))
+			if (unlikely(plus != h_plus && !tmpfile))
 				goto err;
 		} else {
 			if (unlikely(!(h_dentry->d_flags & DCACHE_NFSFS_RENAMED)
@@ -1031,6 +1035,7 @@ static int aufs_d_revalidate(struct dentry *dentry, unsigned int flags)
 	err = -EINVAL;
 	if (!(flags & LOOKUP_OPEN)
 	    && inode
+	    && !(inode->i_state && I_LINKABLE)
 	    && (IS_DEADDIR(inode) || !inode->i_nlink))
 		goto out_inval;
 
