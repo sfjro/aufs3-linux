@@ -82,13 +82,10 @@ static int install_file_pte(struct mm_struct *mm, struct vm_area_struct *vma,
 
 	ptfile = pgoff_to_pte(pgoff);
 
-	if (!pte_none(*pte)) {
-		if (pte_present(*pte) && pte_soft_dirty(*pte))
-			pte_file_mksoft_dirty(ptfile);
+	if (!pte_none(*pte))
 		zap_pte(mm, vma, addr, pte);
-	}
 
-	set_pte_at(mm, addr, pte, ptfile);
+	set_pte_at(mm, addr, pte, pte_file_mksoft_dirty(ptfile));
 	/*
 	 * We don't need to run update_mmu_cache() here because the "file pte"
 	 * being installed by install_file_pte() is not a real pte - it's a
@@ -151,6 +148,10 @@ SYSCALL_DEFINE5(remap_file_pages, unsigned long, start, unsigned long, size,
 	int err = -EINVAL;
 	int has_write_lock = 0;
 	vm_flags_t vm_flags = 0;
+
+	pr_warn_once("%s (%d) uses deprecated remap_file_pages() syscall. "
+			"See Documentation/vm/remap_file_pages.txt.\n",
+			current->comm, current->pid);
 
 	if (prot)
 		return err;
@@ -223,18 +224,27 @@ get_write_lock:
 		 */
 		if (mapping_cap_account_dirty(mapping)) {
 			unsigned long addr;
-			struct file *file = get_file(vma->vm_file);
+			struct file *file = vma->vm_file,
+				*prfile = vma->vm_prfile;
+
 			/* mmap_region may free vma; grab the info now */
 			vm_flags = vma->vm_flags;
 
 			vma_get_file(vma);
 			addr = mmap_region(file, start, size, vm_flags, pgoff);
 			vma_fput(vma);
-			fput(file);
 			if (IS_ERR_VALUE(addr)) {
 				err = addr;
 			} else {
 				BUG_ON(addr != start);
+				if (prfile) {
+					struct vm_area_struct *new_vma;
+					new_vma = find_vma(mm, addr);
+					if (!new_vma->vm_prfile)
+						new_vma->vm_prfile = prfile;
+					if (new_vma != vma)
+						get_file(prfile);
+				}
 				err = 0;
 			}
 			goto out_freed;
