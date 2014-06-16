@@ -33,7 +33,7 @@ static void au_hfsn_free_mark(struct fsnotify_mark *mark)
 					     hn_mark);
 	AuDbg("here\n");
 	au_cache_free_hnotify(hn);
-	smp_mb__before_atomic_dec();
+	smp_mb__before_atomic();
 	if (atomic64_dec_and_test(&au_hfsn_ifree))
 		wake_up(&au_hfsn_wq);
 }
