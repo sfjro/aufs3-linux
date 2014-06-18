@@ -93,7 +93,7 @@ static void sysrq_sb(struct super_block *sb)
 		umode_t mode;
 		file = finfo->fi_file;
 		mode = file_inode(file)->i_mode;
-		if (!special_file(mode) || au_special_file(mode))
+		if (!special_file(mode))
 			au_dpri_file(file);
 	}
 	spin_unlock(&files->spin);
