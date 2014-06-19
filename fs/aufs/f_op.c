@@ -213,41 +213,50 @@ out:
 	return err;
 }
 
-static ssize_t au_do_aio(struct file *h_file, int rw, struct kiocb *kio,
-			 const struct iovec *iov, unsigned long nv, loff_t pos)
+static ssize_t au_do_iter(struct file *h_file, int rw, struct kiocb *kio,
+			  struct iov_iter *iov_iter)
 {
 	ssize_t err;
 	struct file *file;
-	ssize_t (*func)(struct kiocb *, const struct iovec *, unsigned long,
-			loff_t);
+	ssize_t (*iter)(struct kiocb *, struct iov_iter *);
+	ssize_t (*aio)(struct kiocb *, const struct iovec *, unsigned long,
+		       loff_t);
 
 	err = security_file_permission(h_file, rw);
 	if (unlikely(err))
 		goto out;
 
 	err = -ENOSYS;
-	func = NULL;
-	if (rw == MAY_READ)
-		func = h_file->f_op->aio_read;
-	else if (rw == MAY_WRITE)
-		func = h_file->f_op->aio_write;
-	if (func) {
-		file = kio->ki_filp;
-		kio->ki_filp = h_file;
+	iter = NULL;
+	aio = NULL;
+	if (rw == MAY_READ) {
+		iter = h_file->f_op->read_iter;
+		aio = h_file->f_op->aio_read;
+	} else if (rw == MAY_WRITE) {
+		iter = h_file->f_op->write_iter;
+		aio = h_file->f_op->aio_write;
+	}
+
+	file = kio->ki_filp;
+	kio->ki_filp = h_file;
+	if (iter) {
 		lockdep_off();
-		err = func(kio, iov, nv, pos);
+		err = iter(kio, iov_iter);
 		lockdep_on();
-		kio->ki_filp = file;
+	} else if (aio) {
+		lockdep_off();
+		err = aio(kio, iov_iter->iov, iov_iter->nr_segs, kio->ki_pos);
+		lockdep_on();
 	} else
 		/* currently there is no such fs */
 		WARN_ON_ONCE(1);
+	kio->ki_filp = file;
 
 out:
 	return err;
 }
 
-static ssize_t aufs_aio_read(struct kiocb *kio, const struct iovec *iov,
-			     unsigned long nv, loff_t pos)
+static ssize_t aufs_read_iter(struct kiocb *kio, struct iov_iter *iov_iter)
 {
 	ssize_t err;
 	struct file *file, *h_file;
@@ -267,7 +276,7 @@ static ssize_t aufs_aio_read(struct kiocb *kio, const struct iovec *iov,
 	di_read_unlock(dentry, AuLock_IR);
 	fi_read_unlock(file);
 
-	err = au_do_aio(h_file, MAY_READ, kio, iov, nv, pos);
+	err = au_do_iter(h_file, MAY_READ, kio, iov_iter);
 	/* todo: necessary? */
 	/* file->f_ra = h_file->f_ra; */
 	/* update without lock, I don't think it a problem */
@@ -279,8 +288,7 @@ out:
 	return err;
 }
 
-static ssize_t aufs_aio_write(struct kiocb *kio, const struct iovec *iov,
-			      unsigned long nv, loff_t pos)
+static ssize_t aufs_write_iter(struct kiocb *kio, struct iov_iter *iov_iter)
 {
 	ssize_t err;
 	struct au_pin pin;
@@ -313,7 +321,7 @@ static ssize_t aufs_aio_write(struct kiocb *kio, const struct iovec *iov,
 	di_read_unlock(dentry, AuLock_IR);
 	fi_write_unlock(file);
 
-	err = au_do_aio(h_file, MAY_WRITE, kio, iov, nv, pos);
+	err = au_do_iter(h_file, MAY_WRITE, kio, iov_iter);
 	ii_write_lock_child(inode);
 	au_cpup_attr_timesizes(inode);
 	inode->i_mode = file_inode(h_file)->i_mode;
@@ -742,8 +750,9 @@ const struct file_operations aufs_file_fop = {
 
 	.read		= aufs_read,
 	.write		= aufs_write,
-	.aio_read	= aufs_aio_read,
-	.aio_write	= aufs_aio_write,
+	.read_iter	= aufs_read_iter,
+	.write_iter	= aufs_write_iter,
+
 #ifdef CONFIG_AUFS_POLL
 	.poll		= aufs_poll,
 #endif
