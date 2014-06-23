@@ -1174,6 +1174,7 @@ static inline struct file *vmr_do_pr_or_file(struct vm_region *region,
 					     const char func[], int line)
 {
 	struct file *f = region->vm_file, *pr = region->vm_prfile;
+
 	aufs_trace(f, pr, func, line, __func__);
 	return (f && pr) ? pr : f;
 }
@@ -1182,6 +1183,7 @@ static inline void vmr_do_fput(struct vm_region *region,
 			       const char func[], int line)
 {
 	struct file *f = region->vm_file, *pr = region->vm_prfile;
+
 	aufs_trace(f, pr, func, line, __func__);
 	fput(f);
 	if (f && pr)
@@ -1192,6 +1194,7 @@ static inline void vma_do_file_update_time(struct vm_area_struct *vma,
 					   const char func[], int line)
 {
 	struct file *f = vma->vm_file, *pr = vma->vm_prfile;
+
 	aufs_trace(f, pr, func, line, __func__);
 	file_update_time(f);
 	if (f && pr)
@@ -1202,6 +1205,7 @@ static inline struct file *vma_do_pr_or_file(struct vm_area_struct *vma,
 					     const char func[], int line)
 {
 	struct file *f = vma->vm_file, *pr = vma->vm_prfile;
+
 	aufs_trace(f, pr, func, line, __func__);
 	return (f && pr) ? pr : f;
 }
@@ -1210,6 +1214,7 @@ static inline void vma_do_get_file(struct vm_area_struct *vma,
 				   const char func[], int line)
 {
 	struct file *f = vma->vm_file, *pr = vma->vm_prfile;
+
 	aufs_trace(f, pr, func, line, __func__);
 	get_file(f);
 	if (f && pr)
@@ -1220,6 +1225,7 @@ static inline void vma_do_fput(struct vm_area_struct *vma,
 			       const char func[], int line)
 {
 	struct file *f = vma->vm_file, *pr = vma->vm_prfile;
+
 	aufs_trace(f, pr, func, line, __func__);
 	fput(f);
 	if (f && pr)
