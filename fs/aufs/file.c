@@ -122,7 +122,7 @@ static int au_cmoo(struct dentry *dentry)
 		.pin	= &pin,
 		.flags	= AuCpup_DTIME | AuCpup_HOPEN
 	};
-	struct inode *inode;
+	struct inode *inode, *delegated;
 	struct super_block *sb;
 	struct au_branch *br;
 	struct dentry *parent;
@@ -176,12 +176,19 @@ static int au_cmoo(struct dentry *dentry)
 		h_path.mnt = au_br_mnt(br);
 		h_path.dentry = au_h_dptr(dentry, cpg.bsrc);
 		hdir = au_hi(parent->d_inode, cpg.bsrc);
+		delegated = NULL;
 		au_hn_imtx_lock_nested(hdir, AuLsc_I_PARENT2);
-		err = vfsub_unlink(hdir->hi_inode, &h_path, /*force*/1);
+		err = vfsub_unlink(hdir->hi_inode, &h_path, &delegated,
+				   /*force*/1);
 		au_hn_imtx_unlock(hdir);
+		if (unlikely(err == -EWOULDBLOCK)) {
+			pr_warn("cannot retry for NFSv4 delegation"
+				" for an internal unlink\n");
+			iput(delegated);
+		}
 		if (unlikely(err)) {
-			pr_err("unlink %.*s after coo failed (%d), ignored\n",
-			       AuDLNPair(dentry), err);
+			pr_err("unlink %pd after coo failed (%d), ignored\n",
+			       dentry, err);
 			err = 0;
 		}
 	}
