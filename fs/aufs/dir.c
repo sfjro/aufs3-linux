@@ -541,6 +541,7 @@ int au_test_empty_lower(struct dentry *dentry)
 			.actor = au_diractor(test_empty_cb)
 		}
 	};
+	int (*test_empty)(struct dentry *dentry, struct test_empty_arg *arg);
 
 	SiMustAnyLock(dentry->d_sb);
 
@@ -556,8 +557,11 @@ int au_test_empty_lower(struct dentry *dentry)
 	bstart = au_dbstart(dentry);
 	if (au_opt_test(au_mntflags(dentry->d_sb), SHWH))
 		au_fset_testempty(arg.flags, SHWH);
+	test_empty = do_test_empty;
+	if (au_opt_test(au_mntflags(dentry->d_sb), DIRPERM1))
+		test_empty = sio_test_empty;
 	arg.bindex = bstart;
-	err = do_test_empty(dentry, &arg);
+	err = test_empty(dentry, &arg);
 	if (unlikely(err))
 		goto out_whlist;
 
@@ -569,7 +573,7 @@ int au_test_empty_lower(struct dentry *dentry)
 		h_dentry = au_h_dptr(dentry, bindex);
 		if (h_dentry && h_dentry->d_inode) {
 			arg.bindex = bindex;
-			err = do_test_empty(dentry, &arg);
+			err = test_empty(dentry, &arg);
 		}
 	}
 
