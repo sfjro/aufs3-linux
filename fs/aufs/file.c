@@ -210,6 +210,7 @@ int au_do_open(struct file *file, int (*open)(struct file *file, int flags),
 {
 	int err;
 	struct dentry *dentry;
+	struct au_finfo *finfo;
 
 	err = au_finfo_init(file, fidir);
 	if (unlikely(err))
@@ -223,9 +224,15 @@ int au_do_open(struct file *file, int (*open)(struct file *file, int flags),
 		err = open(file, vfsub_file_flags(file));
 	di_read_unlock(dentry, AuLock_IR);
 
+	finfo = au_fi(file);
+	if (!err) {
+		finfo->fi_file = file;
+		au_sphl_add(&finfo->fi_hlist,
+			    &au_sbi(file->f_dentry->d_sb)->si_files);
+	}
 	fi_write_unlock(file);
 	if (unlikely(err)) {
-		au_fi(file)->fi_hdir = NULL;
+		finfo->fi_hdir = NULL;
 		au_finfo_fin(file);
 	}
 
