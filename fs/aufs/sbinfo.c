@@ -97,6 +97,8 @@ int au_si_alloc(struct super_block *sb)
 	sbinfo->si_wbr_copyup_ops = au_wbr_copyup_ops + sbinfo->si_wbr_copyup;
 	sbinfo->si_wbr_create_ops = au_wbr_create_ops + sbinfo->si_wbr_create;
 
+	au_fhsm_init(sbinfo);
+
 	sbinfo->si_mntflags = au_opts_plink(AuOpt_Def);
 
 	sbinfo->si_xino_jiffy = jiffies;
@@ -115,6 +117,8 @@ int au_si_alloc(struct super_block *sb)
 		au_sphl_init(sbinfo->si_plink + i);
 	init_waitqueue_head(&sbinfo->si_plink_wq);
 	spin_lock_init(&sbinfo->si_plink_maint_lock);
+
+	au_sphl_init(&sbinfo->si_files);
 
 	/* leave other members for sysaufs and si_mnt. */
 	sbinfo->si_sb = sb;
