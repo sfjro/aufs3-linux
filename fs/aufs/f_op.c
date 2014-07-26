@@ -43,11 +43,6 @@ int au_do_open_nondir(struct file *file, int flags)
 		au_set_fbstart(file, bindex);
 		au_set_h_fptr(file, bindex, h_file);
 		au_update_figen(file);
-		if (!(file->f_mode & FMODE_WRITE)) {
-			lg_local_lock(&files_lglock);
-			__file_sb_list_add(file, dentry->d_sb);
-			lg_local_unlock(&files_lglock);
-		}
 		/* todo: necessary? */
 		/* file->f_ra = h_file->f_ra; */
 	}
@@ -78,6 +73,7 @@ int aufs_release_nondir(struct inode *inode __maybe_unused, struct file *file)
 	aufs_bindex_t bindex;
 
 	finfo = au_fi(file);
+	au_sphl_del(&finfo->fi_hlist, &au_sbi(file->f_dentry->d_sb)->si_files);
 	bindex = finfo->fi_btop;
 	if (bindex >= 0)
 		au_set_h_fptr(file, bindex, NULL);
