@@ -212,7 +212,7 @@ struct filter_entry {
 
 #define CH_DEVICE(devid, data) { PCI_VDEVICE(CHELSIO, devid), (data) }
 
-static DEFINE_PCI_DEVICE_TABLE(cxgb4_pci_tbl) = {
+static const struct pci_device_id cxgb4_pci_tbl[] = {
 	CH_DEVICE(0xa000, 0),  /* PE10K */
 	CH_DEVICE(0x4001, -1),
 	CH_DEVICE(0x4002, -1),
@@ -522,6 +522,8 @@ static void dcb_tx_queue_prio_enable(struct net_device *dev, int enable)
 			dev_err(adap->pdev_dev,
 				"Can't %s DCB Priority on port %d, TX Queue %d: err=%d\n",
 				enable ? "set" : "unset", pi->port_id, i, -err);
+		else
+			txq->dcb_prio = value;
 	}
 }
 #endif /* CONFIG_CHELSIO_T4_DCB */
