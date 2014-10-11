@@ -1450,18 +1450,17 @@ static int nl80211_send_wiphy(struct cfg80211_registered_device *dev,
 		}
 		CMD(start_p2p_device, START_P2P_DEVICE);
 		CMD(set_mcast_rate, SET_MCAST_RATE);
+#ifdef CONFIG_NL80211_TESTMODE
+		CMD(testmode_cmd, TESTMODE);
+#endif
 		if (state->split) {
 			CMD(crit_proto_start, CRIT_PROTOCOL_START);
 			CMD(crit_proto_stop, CRIT_PROTOCOL_STOP);
 			if (dev->wiphy.flags & WIPHY_FLAG_HAS_CHANNEL_SWITCH)
 				CMD(channel_switch, CHANNEL_SWITCH);
+			CMD(set_qos_map, SET_QOS_MAP);
 		}
-		CMD(set_qos_map, SET_QOS_MAP);
-
-#ifdef CONFIG_NL80211_TESTMODE
-		CMD(testmode_cmd, TESTMODE);
-#endif
-
+		/* add into the if now */
 #undef CMD
 
 		if (dev->ops->connect || dev->ops->auth) {
@@ -6797,6 +6796,9 @@ void __cfg80211_send_event_skb(struct sk_buff *skb, gfp_t gfp)
 	struct nlattr *data = ((void **)skb->cb)[2];
 	enum nl80211_multicast_groups mcgrp = NL80211_MCGRP_TESTMODE;
 
+	/* clear CB data for netlink core to own from now on */
+	memset(skb->cb, 0, sizeof(skb->cb));
+
 	nla_nest_end(skb, data);
 	genlmsg_end(skb, hdr);
 
@@ -9075,6 +9077,9 @@ int cfg80211_vendor_cmd_reply(struct sk_buff *skb)
 	struct cfg80211_registered_device *rdev = ((void **)skb->cb)[0];
 	void *hdr = ((void **)skb->cb)[1];
 	struct nlattr *data = ((void **)skb->cb)[2];
+
+	/* clear CB data for netlink core to own from now on */
+	memset(skb->cb, 0, sizeof(skb->cb));
 
 	if (WARN_ON(!rdev->cur_cmd_info)) {
 		kfree_skb(skb);

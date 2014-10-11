@@ -1062,6 +1062,7 @@ static void hdmi_pin_setup_infoframe(struct hda_codec *codec,
 {
 	union audio_infoframe ai;
 
+	memset(&ai, 0, sizeof(ai));
 	if (conn_type == 0) { /* HDMI */
 		struct hdmi_audio_infoframe *hdmi_ai = &ai.hdmi;
 
@@ -1123,8 +1124,10 @@ static void hdmi_setup_audio_infoframe(struct hda_codec *codec,
 					    AMP_OUT_UNMUTE);
 
 	eld = &per_pin->sink_eld;
-	if (!eld->monitor_present)
+	if (!eld->monitor_present) {
+		hdmi_set_channel_count(codec, per_pin->cvt_nid, channels);
 		return;
+	}
 
 	if (!non_pcm && per_pin->chmap_set)
 		ca = hdmi_manual_channel_allocation(channels, per_pin->chmap);
@@ -2163,7 +2166,7 @@ static int generic_hdmi_resume(struct hda_codec *codec)
 	struct hdmi_spec *spec = codec->spec;
 	int pin_idx;
 
-	generic_hdmi_init(codec);
+	codec->patch_ops.init(codec);
 	snd_hda_codec_resume_amp(codec);
 	snd_hda_codec_resume_cache(codec);
 

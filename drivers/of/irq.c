@@ -301,16 +301,17 @@ int of_irq_parse_one(struct device_node *device, int index, struct of_phandle_ar
 	/* Get the reg property (if any) */
 	addr = of_get_property(device, "reg", NULL);
 
+	/* Try the new-style interrupts-extended first */
+	res = of_parse_phandle_with_args(device, "interrupts-extended",
+					"#interrupt-cells", index, out_irq);
+	if (!res)
+		return of_irq_parse_raw(addr, out_irq);
+
 	/* Get the interrupts property */
 	intspec = of_get_property(device, "interrupts", &intlen);
-	if (intspec == NULL) {
-		/* Try the new-style interrupts-extended */
-		res = of_parse_phandle_with_args(device, "interrupts-extended",
-						"#interrupt-cells", index, out_irq);
-		if (res)
-			return -EINVAL;
-		return of_irq_parse_raw(addr, out_irq);
-	}
+	if (intspec == NULL)
+		return -EINVAL;
+
 	intlen /= sizeof(*intspec);
 
 	pr_debug(" intspec=%d intlen=%d\n", be32_to_cpup(intspec), intlen);
@@ -378,6 +379,32 @@ int of_irq_to_resource(struct device_node *dev, int index, struct resource *r)
 	return irq;
 }
 EXPORT_SYMBOL_GPL(of_irq_to_resource);
+
+/**
+ * of_irq_get - Decode a node's IRQ and return it as a Linux irq number
+ * @dev: pointer to device tree node
+ * @index: zero-based index of the irq
+ *
+ * Returns Linux irq number on success, or -EPROBE_DEFER if the irq domain
+ * is not yet created.
+ *
+ */
+int of_irq_get(struct device_node *dev, int index)
+{
+	int rc;
+	struct of_phandle_args oirq;
+	struct irq_domain *domain;
+
+	rc = of_irq_parse_one(dev, index, &oirq);
+	if (rc)
+		return rc;
+
+	domain = irq_find_host(oirq.np);
+	if (!domain)
+		return -EPROBE_DEFER;
+
+	return irq_create_of_mapping(&oirq);
+}
 
 /**
  * of_irq_count - Count the number of IRQs a node uses

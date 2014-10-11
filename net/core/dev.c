@@ -148,6 +148,9 @@ struct list_head ptype_all __read_mostly;	/* Taps */
 static struct list_head offload_base __read_mostly;
 
 static int netif_rx_internal(struct sk_buff *skb);
+static int call_netdevice_notifiers_info(unsigned long val,
+					 struct net_device *dev,
+					 struct netdev_notifier_info *info);
 
 /*
  * The @dev_base_head list is protected by @dev_base_lock and the rtnl
@@ -1207,7 +1210,11 @@ EXPORT_SYMBOL(netdev_features_change);
 void netdev_state_change(struct net_device *dev)
 {
 	if (dev->flags & IFF_UP) {
-		call_netdevice_notifiers(NETDEV_CHANGE, dev);
+		struct netdev_notifier_change_info change_info;
+
+		change_info.flags_changed = 0;
+		call_netdevice_notifiers_info(NETDEV_CHANGE, dev,
+					      &change_info.info);
 		rtmsg_ifinfo(RTM_NEWLINK, dev, 0, GFP_KERNEL);
 	}
 }
@@ -2289,7 +2296,7 @@ EXPORT_SYMBOL(skb_checksum_help);
 __be16 skb_network_protocol(struct sk_buff *skb, int *depth)
 {
 	__be16 type = skb->protocol;
-	int vlan_depth = ETH_HLEN;
+	int vlan_depth = skb->mac_len;
 
 	/* Tunnel gso handlers can set protocol to ethernet. */
 	if (type == htons(ETH_P_TEB)) {
@@ -3944,6 +3951,7 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff 
 	}
 	NAPI_GRO_CB(skb)->count = 1;
 	NAPI_GRO_CB(skb)->age = jiffies;
+	NAPI_GRO_CB(skb)->last = skb;
 	skb_shinfo(skb)->gso_size = skb_gro_len(skb);
 	skb->next = napi->gro_list;
 	napi->gro_list = skb;
@@ -4050,6 +4058,9 @@ static void napi_reuse_skb(struct napi_struct *napi, struct sk_buff *skb)
 	skb->vlan_tci = 0;
 	skb->dev = napi->dev;
 	skb->skb_iif = 0;
+	skb->encapsulation = 0;
+	skb_shinfo(skb)->gso_type = 0;
+	skb->truesize = SKB_TRUESIZE(skb_end_offset(skb));
 
 	napi->skb = skb;
 }
@@ -4605,6 +4616,32 @@ void *netdev_lower_get_next_private_rcu(struct net_device *dev,
 EXPORT_SYMBOL(netdev_lower_get_next_private_rcu);
 
 /**
+ * netdev_lower_get_next - Get the next device from the lower neighbour
+ *                         list
+ * @dev: device
+ * @iter: list_head ** of the current position
+ *
+ * Gets the next netdev_adjacent from the dev's lower neighbour
+ * list, starting from iter position. The caller must hold RTNL lock or
+ * its own locking that guarantees that the neighbour lower
+ * list will remain unchainged.
+ */
+void *netdev_lower_get_next(struct net_device *dev, struct list_head **iter)
+{
+	struct netdev_adjacent *lower;
+
+	lower = list_entry((*iter)->next, struct netdev_adjacent, list);
+
+	if (&lower->list == &dev->adj_list.lower)
+		return NULL;
+
+	*iter = &lower->list;
+
+	return lower->dev;
+}
+EXPORT_SYMBOL(netdev_lower_get_next);
+
+/**
  * netdev_lower_get_first_private_rcu - Get the first ->private from the
  *				       lower neighbour list, RCU
  *				       variant
@@ -5053,6 +5090,30 @@ void *netdev_lower_dev_get_private(struct net_device *dev,
 	return lower->private;
 }
 EXPORT_SYMBOL(netdev_lower_dev_get_private);
+
+
+int dev_get_nest_level(struct net_device *dev,
+		       bool (*type_check)(struct net_device *dev))
+{
+	struct net_device *lower = NULL;
+	struct list_head *iter;
+	int max_nest = -1;
+	int nest;
+
+	ASSERT_RTNL();
+
+	netdev_for_each_lower_dev(dev, lower, iter) {
+		nest = dev_get_nest_level(lower, type_check);
+		if (max_nest < nest)
+			max_nest = nest;
+	}
+
+	if (type_check(dev))
+		max_nest++;
+
+	return max_nest;
+}
+EXPORT_SYMBOL(dev_get_nest_level);
 
 static void dev_change_rx_flags(struct net_device *dev, int flags)
 {
@@ -5523,7 +5584,7 @@ static int dev_new_index(struct net *net)
 
 /* Delayed registration/unregisteration */
 static LIST_HEAD(net_todo_list);
-static DECLARE_WAIT_QUEUE_HEAD(netdev_unregistering_wq);
+DECLARE_WAIT_QUEUE_HEAD(netdev_unregistering_wq);
 
 static void net_set_todo(struct net_device *dev)
 {
@@ -6496,6 +6557,9 @@ EXPORT_SYMBOL(unregister_netdevice_queue);
 /**
  *	unregister_netdevice_many - unregister many devices
  *	@head: list of devices
+ *
+ *  Note: As most callers use a stack allocated list_head,
+ *  we force a list_del() to make sure stack wont be corrupted later.
  */
 void unregister_netdevice_many(struct list_head *head)
 {
@@ -6505,6 +6569,7 @@ void unregister_netdevice_many(struct list_head *head)
 		rollback_registered_many(head);
 		list_for_each_entry(dev, head, unreg_list)
 			net_set_todo(dev);
+		list_del(head);
 	}
 }
 EXPORT_SYMBOL(unregister_netdevice_many);
@@ -6960,7 +7025,6 @@ static void __net_exit default_device_exit_batch(struct list_head *net_list)
 		}
 	}
 	unregister_netdevice_many(&dev_kill_list);
-	list_del(&dev_kill_list);
 	rtnl_unlock();
 }
 
