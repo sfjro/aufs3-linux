@@ -136,8 +136,8 @@ typedef int16_t aufs_bindex_t;
 
 #define AuBrAttr_FHSM		(1 << 5)	/* file-based hsm */
 #define AuBrAttr_UNPIN		(1 << 6)	/* rename-able top dir of
-						   branch */
-
+						   branch. meaningless since
+						   linux-3.18-rc1 */
 #define AuBrRAttr_WH		(1 << 7)	/* whiteout-able */
 #define AuBrRAttr_Mask		AuBrRAttr_WH
 

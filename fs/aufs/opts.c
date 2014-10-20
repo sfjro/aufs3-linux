@@ -218,6 +218,7 @@ static match_table_t brattr = {
 	/* general */
 	{AuBrAttr_COO_REG, AUFS_BRATTR_COO_REG},
 	{AuBrAttr_COO_ALL, AUFS_BRATTR_COO_ALL},
+	/* 'unpin' attrib is meaningless since linux-3.18-rc1 */
 	{AuBrAttr_UNPIN, AUFS_BRATTR_UNPIN},
 	{AuBrAttr_FHSM, AUFS_BRATTR_FHSM},
 
@@ -324,6 +325,17 @@ static int noinline_for_stack br_perm_val(char *perm)
 		val &= ~AuBrRAttr_Mask;
 		break;
 	}
+
+	/*
+	 * 'unpin' attrib becomes meaningless since linux-3.18-rc1, but aufs
+	 * does not treat it as an error, just warning.
+	 * this is a tiny guard for the user operation.
+	 */
+	if (val & AuBrAttr_UNPIN) {
+		bad |= AuBrAttr_UNPIN;
+		val &= ~AuBrAttr_UNPIN;
+	}
+
 	if (unlikely(bad)) {
 		sz = au_do_optstr_br_attr(&attr, bad);
 		AuDebugOn(!sz);
