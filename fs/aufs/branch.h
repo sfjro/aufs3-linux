@@ -96,7 +96,6 @@ struct au_branch {
 	aufs_bindex_t		br_id;
 
 	int			br_perm;
-	unsigned int		br_dflags;
 	struct path		br_path;
 	spinlock_t		br_dykey_lock;
 	struct au_dykey		*br_dykey[AuBrDynOp];
