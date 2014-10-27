@@ -246,6 +246,12 @@ static int test_add(struct super_block *sb, struct au_opt_add *add, int remount)
 		goto out;
 	}
 
+	if (unlikely(inode->i_sb->s_stack_depth)) {
+		pr_err("already stacked, %s (%s)\n",
+		       add->pathname, au_sbtype(inode->i_sb));
+		goto out;
+	}
+
 	err = test_br(add->path.dentry->d_inode, add->perm, add->pathname);
 	if (unlikely(err))
 		goto out;

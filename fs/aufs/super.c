@@ -896,6 +896,7 @@ static int aufs_fill_super(struct super_block *sb, void *raw_data,
 	sb->s_d_op = &aufs_dop;
 	sb->s_magic = AUFS_SUPER_MAGIC;
 	sb->s_maxbytes = 0;
+	sb->s_stack_depth = 1;
 	au_export_init(sb);
 
 	err = alloc_root(sb);
