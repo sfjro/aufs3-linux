@@ -136,7 +136,7 @@ static struct sk_buff *br_vlan_untag(struct sk_buff *skb)
 	}
 
 	skb->vlan_tci = 0;
-	skb = vlan_untag(skb);
+	skb = skb_vlan_untag(skb);
 	if (skb)
 		skb->vlan_tci = 0;
 
@@ -149,7 +149,8 @@ struct sk_buff *br_handle_vlan(struct net_bridge *br,
 {
 	u16 vid;
 
-	if (!br->vlan_enabled)
+	/* If this packet was not filtered at input, let it pass */
+	if (!BR_INPUT_SKB_CB(skb)->vlan_filtered)
 		goto out;
 
 	/* At this point, we know that the frame was filtered and contains
@@ -194,14 +195,18 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
 	/* If VLAN filtering is disabled on the bridge, all packets are
 	 * permitted.
 	 */
-	if (!br->vlan_enabled)
+	if (!br->vlan_enabled) {
+		BR_INPUT_SKB_CB(skb)->vlan_filtered = false;
 		return true;
+	}
 
 	/* If there are no vlan in the permitted list, all packets are
 	 * rejected.
 	 */
 	if (!v)
-		return false;
+		goto drop;
+
+	BR_INPUT_SKB_CB(skb)->vlan_filtered = true;
 
 	err = br_vlan_get_tag(skb, vid);
 	if (!*vid) {
@@ -212,7 +217,7 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
 		 * vlan untagged or priority-tagged traffic belongs to.
 		 */
 		if (pvid == VLAN_N_VID)
-			return false;
+			goto drop;
 
 		/* PVID is set on this port.  Any untagged or priority-tagged
 		 * ingress frame is considered to belong to this vlan.
@@ -235,7 +240,8 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
 	/* Frame had a valid vlan tag.  See if vlan is allowed */
 	if (test_bit(*vid, v->vlan_bitmap))
 		return true;
-
+drop:
+	kfree_skb(skb);
 	return false;
 }
 
@@ -246,7 +252,8 @@ bool br_allowed_egress(struct net_bridge *br,
 {
 	u16 vid;
 
-	if (!br->vlan_enabled)
+	/* If this packet was not filtered at input, let it pass */
+	if (!BR_INPUT_SKB_CB(skb)->vlan_filtered)
 		return true;
 
 	if (!v)
@@ -254,6 +261,35 @@ bool br_allowed_egress(struct net_bridge *br,
 
 	br_vlan_get_tag(skb, &vid);
 	if (test_bit(vid, v->vlan_bitmap))
+		return true;
+
+	return false;
+}
+
+/* Called under RCU */
+bool br_should_learn(struct net_bridge_port *p, struct sk_buff *skb, u16 *vid)
+{
+	struct net_bridge *br = p->br;
+	struct net_port_vlans *v;
+
+	/* If filtering was disabled at input, let it pass. */
+	if (!br->vlan_enabled)
+		return true;
+
+	v = rcu_dereference(p->vlan_info);
+	if (!v)
+		return false;
+
+	br_vlan_get_tag(skb, vid);
+	if (!*vid) {
+		*vid = br_get_pvid(v);
+		if (*vid == VLAN_N_VID)
+			return false;
+
+		return true;
+	}
+
+	if (test_bit(*vid, v->vlan_bitmap))
 		return true;
 
 	return false;

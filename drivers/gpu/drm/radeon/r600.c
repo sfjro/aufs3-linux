@@ -2554,14 +2554,17 @@ void r600_fence_ring_emit(struct radeon_device *rdev,
 			  struct radeon_fence *fence)
 {
 	struct radeon_ring *ring = &rdev->ring[fence->ring];
+	u32 cp_coher_cntl = PACKET3_TC_ACTION_ENA | PACKET3_VC_ACTION_ENA |
+		PACKET3_SH_ACTION_ENA;
+
+	if (rdev->family >= CHIP_RV770)
+		cp_coher_cntl |= PACKET3_FULL_CACHE_ENA;
 
 	if (rdev->wb.use_event) {
 		u64 addr = rdev->fence_drv[fence->ring].gpu_addr;
 		/* flush read cache over gart */
 		radeon_ring_write(ring, PACKET3(PACKET3_SURFACE_SYNC, 3));
-		radeon_ring_write(ring, PACKET3_TC_ACTION_ENA |
-					PACKET3_VC_ACTION_ENA |
-					PACKET3_SH_ACTION_ENA);
+		radeon_ring_write(ring, cp_coher_cntl);
 		radeon_ring_write(ring, 0xFFFFFFFF);
 		radeon_ring_write(ring, 0);
 		radeon_ring_write(ring, 10); /* poll interval */
@@ -2575,9 +2578,7 @@ void r600_fence_ring_emit(struct radeon_device *rdev,
 	} else {
 		/* flush read cache over gart */
 		radeon_ring_write(ring, PACKET3(PACKET3_SURFACE_SYNC, 3));
-		radeon_ring_write(ring, PACKET3_TC_ACTION_ENA |
-					PACKET3_VC_ACTION_ENA |
-					PACKET3_SH_ACTION_ENA);
+		radeon_ring_write(ring, cp_coher_cntl);
 		radeon_ring_write(ring, 0xFFFFFFFF);
 		radeon_ring_write(ring, 0);
 		radeon_ring_write(ring, 10); /* poll interval */
@@ -2724,14 +2725,6 @@ static int r600_startup(struct radeon_device *rdev)
 		return r;
 
 	r600_mc_program(rdev);
-
-	if (!rdev->me_fw || !rdev->pfp_fw || !rdev->rlc_fw) {
-		r = r600_init_microcode(rdev);
-		if (r) {
-			DRM_ERROR("Failed to load firmware!\n");
-			return r;
-		}
-	}
 
 	if (rdev->flags & RADEON_IS_AGP) {
 		r600_agp_enable(rdev);
@@ -2919,6 +2912,14 @@ int r600_init(struct radeon_device *rdev)
 	r = radeon_bo_init(rdev);
 	if (r)
 		return r;
+
+	if (!rdev->me_fw || !rdev->pfp_fw || !rdev->rlc_fw) {
+		r = r600_init_microcode(rdev);
+		if (r) {
+			DRM_ERROR("Failed to load firmware!\n");
+			return r;
+		}
+	}
 
 	rdev->ring[RADEON_RING_TYPE_GFX_INDEX].ring_obj = NULL;
 	r600_ring_init(rdev, &rdev->ring[RADEON_RING_TYPE_GFX_INDEX], 1024 * 1024);
@@ -3370,7 +3371,6 @@ int r600_irq_set(struct radeon_device *rdev)
 	u32 hpd1, hpd2, hpd3, hpd4 = 0, hpd5 = 0, hpd6 = 0;
 	u32 grbm_int_cntl = 0;
 	u32 hdmi0, hdmi1;
-	u32 d1grph = 0, d2grph = 0;
 	u32 dma_cntl;
 	u32 thermal_int = 0;
 
@@ -3479,8 +3479,8 @@ int r600_irq_set(struct radeon_device *rdev)
 	WREG32(CP_INT_CNTL, cp_int_cntl);
 	WREG32(DMA_CNTL, dma_cntl);
 	WREG32(DxMODE_INT_MASK, mode_int);
-	WREG32(D1GRPH_INTERRUPT_CONTROL, d1grph);
-	WREG32(D2GRPH_INTERRUPT_CONTROL, d2grph);
+	WREG32(D1GRPH_INTERRUPT_CONTROL, DxGRPH_PFLIP_INT_MASK);
+	WREG32(D2GRPH_INTERRUPT_CONTROL, DxGRPH_PFLIP_INT_MASK);
 	WREG32(GRBM_INT_CNTL, grbm_int_cntl);
 	if (ASIC_IS_DCE3(rdev)) {
 		WREG32(DC_HPD1_INT_CONTROL, hpd1);
@@ -3657,6 +3657,7 @@ static u32 r600_get_ih_wptr(struct radeon_device *rdev)
 		tmp = RREG32(IH_RB_CNTL);
 		tmp |= IH_WPTR_OVERFLOW_CLEAR;
 		WREG32(IH_RB_CNTL, tmp);
+		wptr &= ~RB_OVERFLOW;
 	}
 	return (wptr & rdev->ih.ptr_mask);
 }
@@ -3783,6 +3784,14 @@ restart_ih:
 				break;
 			}
 			break;
+		case 9: /* D1 pflip */
+			DRM_DEBUG("IH: D1 flip\n");
+			radeon_crtc_handle_flip(rdev, 0);
+			break;
+		case 11: /* D2 pflip */
+			DRM_DEBUG("IH: D2 flip\n");
+			radeon_crtc_handle_flip(rdev, 1);
+			break;
 		case 19: /* HPD/DAC hotplug */
 			switch (src_data) {
 			case 0:
@@ -3852,6 +3861,10 @@ restart_ih:
 				DRM_ERROR("Unhandled interrupt: %d %d\n", src_id, src_data);
 				break;
 			}
+			break;
+		case 124: /* UVD */
+			DRM_DEBUG("IH: UVD int: 0x%08x\n", src_data);
+			radeon_fence_process(rdev, R600_RING_TYPE_UVD_INDEX);
 			break;
 		case 176: /* CP_INT in ring buffer */
 		case 177: /* CP_INT in IB1 */

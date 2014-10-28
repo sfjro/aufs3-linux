@@ -35,6 +35,21 @@ static const char hcd_name[] = "ehci-pci";
 #define PCI_DEVICE_ID_INTEL_CE4100_USB	0x2e70
 
 /*-------------------------------------------------------------------------*/
+#define PCI_DEVICE_ID_INTEL_QUARK_X1000_SOC		0x0939
+static inline bool is_intel_quark_x1000(struct pci_dev *pdev)
+{
+	return pdev->vendor == PCI_VENDOR_ID_INTEL &&
+		pdev->device == PCI_DEVICE_ID_INTEL_QUARK_X1000_SOC;
+}
+
+/*
+ * 0x84 is the offset of in/out threshold register,
+ * and it is the same offset as the register of 'hostpc'.
+ */
+#define	intel_quark_x1000_insnreg01	hostpc
+
+/* Maximum usable threshold value is 0x7f dwords for both IN and OUT */
+#define INTEL_QUARK_X1000_EHCI_MAX_THRESHOLD	0x007f007f
 
 /* called after powerup, by probe or system-pm "wakeup" */
 static int ehci_pci_reinit(struct ehci_hcd *ehci, struct pci_dev *pdev)
@@ -50,6 +65,16 @@ static int ehci_pci_reinit(struct ehci_hcd *ehci, struct pci_dev *pdev)
 	if (!retval)
 		ehci_dbg(ehci, "MWI active\n");
 
+	/* Reset the threshold limit */
+	if (is_intel_quark_x1000(pdev)) {
+		/*
+		 * For the Intel QUARK X1000, raise the I/O threshold to the
+		 * maximum usable value in order to improve performance.
+		 */
+		ehci_writel(ehci, INTEL_QUARK_X1000_EHCI_MAX_THRESHOLD,
+			ehci->regs->intel_quark_x1000_insnreg01);
+	}
+
 	return 0;
 }
 
@@ -58,8 +83,6 @@ static int ehci_pci_setup(struct usb_hcd *hcd)
 {
 	struct ehci_hcd		*ehci = hcd_to_ehci(hcd);
 	struct pci_dev		*pdev = to_pci_dev(hcd->self.controller);
-	struct pci_dev		*p_smbus;
-	u8			rev;
 	u32			temp;
 	int			retval;
 
@@ -175,22 +198,12 @@ static int ehci_pci_setup(struct usb_hcd *hcd)
 		/* SB600 and old version of SB700 have a bug in EHCI controller,
 		 * which causes usb devices lose response in some cases.
 		 */
-		if ((pdev->device == 0x4386) || (pdev->device == 0x4396)) {
-			p_smbus = pci_get_device(PCI_VENDOR_ID_ATI,
-						 PCI_DEVICE_ID_ATI_SBX00_SMBUS,
-						 NULL);
-			if (!p_smbus)
-				break;
-			rev = p_smbus->revision;
-			if ((pdev->device == 0x4386) || (rev == 0x3a)
-			    || (rev == 0x3b)) {
-				u8 tmp;
-				ehci_info(ehci, "applying AMD SB600/SB700 USB "
-					"freeze workaround\n");
-				pci_read_config_byte(pdev, 0x53, &tmp);
-				pci_write_config_byte(pdev, 0x53, tmp | (1<<3));
-			}
-			pci_dev_put(p_smbus);
+		if ((pdev->device == 0x4386 || pdev->device == 0x4396) &&
+				usb_amd_hang_symptom_quirk()) {
+			u8 tmp;
+			ehci_info(ehci, "applying AMD SB600/SB700 USB freeze workaround\n");
+			pci_read_config_byte(pdev, 0x53, &tmp);
+			pci_write_config_byte(pdev, 0x53, tmp | (1<<3));
 		}
 		break;
 	case PCI_VENDOR_ID_NETMOS:

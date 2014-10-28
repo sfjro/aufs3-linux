@@ -372,6 +372,16 @@ coalesce_t2(char *second_buf, struct smb_hdr *target_hdr)
 	return 0;
 }
 
+static void
+cifs_downgrade_oplock(struct TCP_Server_Info *server,
+			struct cifsInodeInfo *cinode, bool set_level2)
+{
+	if (set_level2)
+		cifs_set_oplock_level(cinode, OPLOCK_READ);
+	else
+		cifs_set_oplock_level(cinode, 0);
+}
+
 static bool
 cifs_check_trans2(struct mid_q_entry *mid, struct TCP_Server_Info *server,
 		  char *buf, int malformed)
@@ -937,6 +947,12 @@ cifs_is_read_op(__u32 oplock)
 	return oplock == OPLOCK_READ;
 }
 
+static bool
+cifs_dir_needs_close(struct cifsFileInfo *cfile)
+{
+	return !cfile->srch_inf.endOfSearch && !cfile->invalidHandle;
+}
+
 struct smb_version_operations smb1_operations = {
 	.send_cancel = send_nt_cancel,
 	.compare_fids = cifs_compare_fids,
@@ -957,6 +973,7 @@ struct smb_version_operations smb1_operations = {
 	.clear_stats = cifs_clear_stats,
 	.print_stats = cifs_print_stats,
 	.is_oplock_break = is_valid_oplock_break,
+	.downgrade_oplock = cifs_downgrade_oplock,
 	.check_trans2 = cifs_check_trans2,
 	.need_neg = cifs_need_neg,
 	.negotiate = cifs_negotiate,
@@ -1003,6 +1020,15 @@ struct smb_version_operations smb1_operations = {
 	.push_mand_locks = cifs_push_mandatory_locks,
 	.query_mf_symlink = open_query_close_cifs_symlink,
 	.is_read_op = cifs_is_read_op,
+	.dir_needs_close = cifs_dir_needs_close,
+#ifdef CONFIG_CIFS_XATTR
+	.query_all_EAs = CIFSSMBQAllEAs,
+	.set_EA = CIFSSMBSetEA,
+#endif /* CIFS_XATTR */
+#ifdef CONFIG_CIFS_ACL
+	.get_acl = get_cifs_acl,
+	.set_acl = set_cifs_acl,
+#endif /* CIFS_ACL */
 };
 
 struct smb_version_values smb1_values = {

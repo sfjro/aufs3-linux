@@ -68,7 +68,7 @@ static void __page_cache_release(struct page *page)
 static void __put_single_page(struct page *page)
 {
 	__page_cache_release(page);
-	free_hot_cold_page(page, 0);
+	free_hot_cold_page(page, false);
 }
 
 static void __put_compound_page(struct page *page)
@@ -82,22 +82,9 @@ static void __put_compound_page(struct page *page)
 
 static void put_compound_page(struct page *page)
 {
-	/*
-	 * hugetlbfs pages cannot be split from under us.  If this is a
-	 * hugetlbfs page, check refcount on head page and release the page if
-	 * the refcount becomes zero.
-	 */
-	if (PageHuge(page)) {
-		page = compound_head(page);
-		if (put_page_testzero(page))
-			__put_compound_page(page);
-
-		return;
-	}
-
 	if (unlikely(PageTail(page))) {
 		/* __split_huge_page_refcount can run under us */
-		struct page *page_head = compound_trans_head(page);
+		struct page *page_head = compound_head(page);
 
 		if (likely(page != page_head &&
 			   get_page_unless_zero(page_head))) {
@@ -111,14 +98,31 @@ static void put_compound_page(struct page *page)
 			 * still hot on arches that do not support
 			 * this_cpu_cmpxchg_double().
 			 */
-			if (PageSlab(page_head)) {
-				if (PageTail(page)) {
+			if (PageSlab(page_head) || PageHeadHuge(page_head)) {
+				if (likely(PageTail(page))) {
+					/*
+					 * __split_huge_page_refcount
+					 * cannot race here.
+					 */
+					VM_BUG_ON(!PageHead(page_head));
+					atomic_dec(&page->_mapcount);
 					if (put_page_testzero(page_head))
 						VM_BUG_ON(1);
-
-					atomic_dec(&page->_mapcount);
-					goto skip_lock_tail;
+					if (put_page_testzero(page_head))
+						__put_compound_page(page_head);
+					return;
 				} else
+					/*
+					 * __split_huge_page_refcount
+					 * run before us, "page" was a
+					 * THP tail. The split
+					 * page_head has been freed
+					 * and reallocated as slab or
+					 * hugetlbfs page of smaller
+					 * order (only possible if
+					 * reallocated as slab on
+					 * x86).
+					 */
 					goto skip_lock;
 			}
 			/*
@@ -132,8 +136,27 @@ static void put_compound_page(struct page *page)
 				/* __split_huge_page_refcount run before us */
 				compound_unlock_irqrestore(page_head, flags);
 skip_lock:
-				if (put_page_testzero(page_head))
-					__put_single_page(page_head);
+				if (put_page_testzero(page_head)) {
+					/*
+					 * The head page may have been
+					 * freed and reallocated as a
+					 * compound page of smaller
+					 * order and then freed again.
+					 * All we know is that it
+					 * cannot have become: a THP
+					 * page, a compound page of
+					 * higher order, a tail page.
+					 * That is because we still
+					 * hold the refcount of the
+					 * split THP tail and
+					 * page_head was the THP head
+					 * before the split.
+					 */
+					if (PageHead(page_head))
+						__put_compound_page(page_head);
+					else
+						__put_single_page(page_head);
+				}
 out_put_single:
 				if (put_page_testzero(page))
 					__put_single_page(page);
@@ -155,7 +178,6 @@ out_put_single:
 			VM_BUG_ON(atomic_read(&page->_count) != 0);
 			compound_unlock_irqrestore(page_head, flags);
 
-skip_lock_tail:
 			if (put_page_testzero(page_head)) {
 				if (PageHead(page_head))
 					__put_compound_page(page_head);
@@ -198,51 +220,52 @@ bool __get_page_tail(struct page *page)
 	 * proper PT lock that already serializes against
 	 * split_huge_page().
 	 */
+	unsigned long flags;
 	bool got = false;
-	struct page *page_head;
+	struct page *page_head = compound_head(page);
 
-	/*
-	 * If this is a hugetlbfs page it cannot be split under us.  Simply
-	 * increment refcount for the head page.
-	 */
-	if (PageHuge(page)) {
-		page_head = compound_head(page);
-		atomic_inc(&page_head->_count);
-		got = true;
-	} else {
-		unsigned long flags;
-
-		page_head = compound_trans_head(page);
-		if (likely(page != page_head &&
-					get_page_unless_zero(page_head))) {
-
-			/* Ref to put_compound_page() comment. */
-			if (PageSlab(page_head)) {
-				if (likely(PageTail(page))) {
-					__get_page_tail_foll(page, false);
-					return true;
-				} else {
-					put_page(page_head);
-					return false;
-				}
-			}
-
-			/*
-			 * page_head wasn't a dangling pointer but it
-			 * may not be a head page anymore by the time
-			 * we obtain the lock. That is ok as long as it
-			 * can't be freed from under us.
-			 */
-			flags = compound_lock_irqsave(page_head);
-			/* here __split_huge_page_refcount won't run anymore */
+	if (likely(page != page_head && get_page_unless_zero(page_head))) {
+		/* Ref to put_compound_page() comment. */
+		if (PageSlab(page_head) || PageHeadHuge(page_head)) {
 			if (likely(PageTail(page))) {
+				/*
+				 * This is a hugetlbfs page or a slab
+				 * page. __split_huge_page_refcount
+				 * cannot race here.
+				 */
+				VM_BUG_ON(!PageHead(page_head));
 				__get_page_tail_foll(page, false);
-				got = true;
-			}
-			compound_unlock_irqrestore(page_head, flags);
-			if (unlikely(!got))
+				return true;
+			} else {
+				/*
+				 * __split_huge_page_refcount run
+				 * before us, "page" was a THP
+				 * tail. The split page_head has been
+				 * freed and reallocated as slab or
+				 * hugetlbfs page of smaller order
+				 * (only possible if reallocated as
+				 * slab on x86).
+				 */
 				put_page(page_head);
+				return false;
+			}
 		}
+
+		/*
+		 * page_head wasn't a dangling pointer but it
+		 * may not be a head page anymore by the time
+		 * we obtain the lock. That is ok as long as it
+		 * can't be freed from under us.
+		 */
+		flags = compound_lock_irqsave(page_head);
+		/* here __split_huge_page_refcount won't run anymore */
+		if (likely(PageTail(page))) {
+			__get_page_tail_foll(page, false);
+			got = true;
+		}
+		compound_unlock_irqrestore(page_head, flags);
+		if (unlikely(!got))
+			put_page(page_head);
 	}
 	return got;
 }
@@ -414,7 +437,7 @@ static void __activate_page(struct page *page, struct lruvec *lruvec,
 		SetPageActive(page);
 		lru += LRU_ACTIVE;
 		add_page_to_lru_list(page, lruvec, lru);
-		trace_mm_lru_activate(page, page_to_pfn(page));
+		trace_mm_lru_activate(page);
 
 		__count_vm_event(PGACTIVATE);
 		update_page_reclaim_stat(lruvec, file, 1);
@@ -526,12 +549,17 @@ void mark_page_accessed(struct page *page)
 EXPORT_SYMBOL(mark_page_accessed);
 
 /*
- * Queue the page for addition to the LRU via pagevec. The decision on whether
- * to add the page to the [in]active [file|anon] list is deferred until the
- * pagevec is drained. This gives a chance for the caller of __lru_cache_add()
- * have the page added to the active list using mark_page_accessed().
+ * Used to mark_page_accessed(page) that is not visible yet and when it is
+ * still safe to use non-atomic ops
  */
-void __lru_cache_add(struct page *page)
+void init_page_accessed(struct page *page)
+{
+	if (!PageReferenced(page))
+		__SetPageReferenced(page);
+}
+EXPORT_SYMBOL(init_page_accessed);
+
+static void __lru_cache_add(struct page *page)
 {
 	struct pagevec *pvec = &get_cpu_var(lru_add_pvec);
 
@@ -541,11 +569,34 @@ void __lru_cache_add(struct page *page)
 	pagevec_add(pvec, page);
 	put_cpu_var(lru_add_pvec);
 }
-EXPORT_SYMBOL(__lru_cache_add);
+
+/**
+ * lru_cache_add: add a page to the page lists
+ * @page: the page to add
+ */
+void lru_cache_add_anon(struct page *page)
+{
+	if (PageActive(page))
+		ClearPageActive(page);
+	__lru_cache_add(page);
+}
+
+void lru_cache_add_file(struct page *page)
+{
+	if (PageActive(page))
+		ClearPageActive(page);
+	__lru_cache_add(page);
+}
+EXPORT_SYMBOL(lru_cache_add_file);
 
 /**
  * lru_cache_add - add a page to a page list
  * @page: the page to be added to the LRU.
+ *
+ * Queue the page for addition to the LRU via pagevec. The decision on whether
+ * to add the page to the [in]active [file|anon] list is deferred until the
+ * pagevec is drained. This gives a chance for the caller of lru_cache_add()
+ * have the page added to the active list using mark_page_accessed().
  */
 void lru_cache_add(struct page *page)
 {
@@ -756,7 +807,7 @@ void lru_add_drain_all(void)
  * grabbed the page via the LRU.  If it did, give up: shrink_inactive_list()
  * will free it.
  */
-void release_pages(struct page **pages, int nr, int cold)
+void release_pages(struct page **pages, int nr, bool cold)
 {
 	int i;
 	LIST_HEAD(pages_to_free);
@@ -797,7 +848,7 @@ void release_pages(struct page **pages, int nr, int cold)
 		}
 
 		/* Clear Active bit in case of parallel mark_page_accessed */
-		ClearPageActive(page);
+		__ClearPageActive(page);
 
 		list_add(&page->lru, &pages_to_free);
 	}
@@ -879,7 +930,7 @@ static void __pagevec_lru_add_fn(struct page *page, struct lruvec *lruvec,
 	SetPageLRU(page);
 	add_page_to_lru_list(page, lruvec, lru);
 	update_page_reclaim_stat(lruvec, file, active);
-	trace_mm_lru_insertion(page, page_to_pfn(page), lru, trace_pagemap_flags(page));
+	trace_mm_lru_insertion(page, lru);
 }
 
 /*
@@ -891,6 +942,57 @@ void __pagevec_lru_add(struct pagevec *pvec)
 	pagevec_lru_move_fn(pvec, __pagevec_lru_add_fn, NULL);
 }
 EXPORT_SYMBOL(__pagevec_lru_add);
+
+/**
+ * pagevec_lookup_entries - gang pagecache lookup
+ * @pvec:	Where the resulting entries are placed
+ * @mapping:	The address_space to search
+ * @start:	The starting entry index
+ * @nr_entries:	The maximum number of entries
+ * @indices:	The cache indices corresponding to the entries in @pvec
+ *
+ * pagevec_lookup_entries() will search for and return a group of up
+ * to @nr_entries pages and shadow entries in the mapping.  All
+ * entries are placed in @pvec.  pagevec_lookup_entries() takes a
+ * reference against actual pages in @pvec.
+ *
+ * The search returns a group of mapping-contiguous entries with
+ * ascending indexes.  There may be holes in the indices due to
+ * not-present entries.
+ *
+ * pagevec_lookup_entries() returns the number of entries which were
+ * found.
+ */
+unsigned pagevec_lookup_entries(struct pagevec *pvec,
+				struct address_space *mapping,
+				pgoff_t start, unsigned nr_pages,
+				pgoff_t *indices)
+{
+	pvec->nr = find_get_entries(mapping, start, nr_pages,
+				    pvec->pages, indices);
+	return pagevec_count(pvec);
+}
+
+/**
+ * pagevec_remove_exceptionals - pagevec exceptionals pruning
+ * @pvec:	The pagevec to prune
+ *
+ * pagevec_lookup_entries() fills both pages and exceptional radix
+ * tree entries into the pagevec.  This function prunes all
+ * exceptionals from @pvec without leaving holes, so that it can be
+ * passed on to page-only pagevec operations.
+ */
+void pagevec_remove_exceptionals(struct pagevec *pvec)
+{
+	int i, j;
+
+	for (i = 0, j = 0; i < pagevec_count(pvec); i++) {
+		struct page *page = pvec->pages[i];
+		if (!radix_tree_exceptional_entry(page))
+			pvec->pages[j++] = page;
+	}
+	pvec->nr = j;
+}
 
 /**
  * pagevec_lookup - gang pagecache lookup
