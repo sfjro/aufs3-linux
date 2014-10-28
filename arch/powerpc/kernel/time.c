@@ -213,8 +213,6 @@ static u64 scan_dispatch_log(u64 stop_tb)
 	if (i == be64_to_cpu(vpa->dtl_idx))
 		return 0;
 	while (i < be64_to_cpu(vpa->dtl_idx)) {
-		if (dtl_consumer)
-			dtl_consumer(dtl, i);
 		dtb = be64_to_cpu(dtl->timebase);
 		tb_delta = be32_to_cpu(dtl->enqueue_to_dispatch_time) +
 			be32_to_cpu(dtl->ready_to_enqueue_time);
@@ -227,6 +225,8 @@ static u64 scan_dispatch_log(u64 stop_tb)
 		}
 		if (dtb > stop_tb)
 			break;
+		if (dtl_consumer)
+			dtl_consumer(dtl, i);
 		stolen += tb_delta;
 		++i;
 		++dtl;
@@ -512,7 +512,7 @@ void timer_interrupt(struct pt_regs * regs)
 
 	__get_cpu_var(irq_stat).timer_irqs++;
 
-#if defined(CONFIG_PPC32) && defined(CONFIG_PMAC)
+#if defined(CONFIG_PPC32) && defined(CONFIG_PPC_PMAC)
 	if (atomic_read(&ppc_n_lost_interrupts) != 0)
 		do_IRQ(regs);
 #endif

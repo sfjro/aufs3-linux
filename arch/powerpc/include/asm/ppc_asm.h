@@ -378,11 +378,16 @@ n:
  *      ld	rY,ADDROFF(name)(rX)
  */
 #ifdef __powerpc64__
+#ifdef HAVE_AS_ATHIGH
+#define __AS_ATHIGH high
+#else
+#define __AS_ATHIGH h
+#endif
 #define LOAD_REG_IMMEDIATE(reg,expr)		\
 	lis     reg,(expr)@highest;		\
 	ori     reg,reg,(expr)@higher;	\
 	rldicr  reg,reg,32,31;		\
-	oris    reg,reg,(expr)@h;		\
+	oris    reg,reg,(expr)@__AS_ATHIGH;	\
 	ori     reg,reg,(expr)@l;
 
 #define LOAD_REG_ADDR(reg,name)			\
@@ -438,6 +443,8 @@ BEGIN_FTR_SECTION_NESTED(96);		\
 	cmpwi dest,0;			\
 	beq-  90b;			\
 END_FTR_SECTION_NESTED(CPU_FTR_CELL_TB_BUG, CPU_FTR_CELL_TB_BUG, 96)
+#elif defined(CONFIG_8xx)
+#define MFTB(dest)			mftb dest
 #else
 #define MFTB(dest)			mfspr dest, SPRN_TBRL
 #endif
@@ -477,13 +484,6 @@ BEGIN_FTR_SECTION_NESTED(945)						\
 	sldi	ra,ra,32;	/* 11- 13 bits are used for ppr */	\
 	std	ra,TASKTHREADPPR(rb);					\
 END_FTR_SECTION_NESTED(CPU_FTR_HAS_PPR,CPU_FTR_HAS_PPR,945)
-
-#define RESTORE_PPR(ra, rb)						\
-BEGIN_FTR_SECTION_NESTED(946)						\
-	ld	ra,PACACURRENT(r13);					\
-	ld	rb,TASKTHREADPPR(ra);					\
-	mtspr	SPRN_PPR,rb;	/* Restore PPR */			\
-END_FTR_SECTION_NESTED(CPU_FTR_HAS_PPR,CPU_FTR_HAS_PPR,946)
 
 #endif
 

@@ -66,6 +66,15 @@ static int xenvif_poll(struct napi_struct *napi, int budget)
 	struct xenvif *vif = container_of(napi, struct xenvif, napi);
 	int work_done;
 
+	/* This vif is rogue, we pretend we've there is nothing to do
+	 * for this vif to deschedule it from NAPI. But this interface
+	 * will be turned off in thread context later.
+	 */
+	if (unlikely(vif->disabled)) {
+		napi_complete(napi);
+		return 0;
+	}
+
 	work_done = xenvif_tx_action(vif, budget);
 
 	if (work_done < budget) {
@@ -309,11 +318,12 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
 	vif->csum = 1;
 	vif->dev = dev;
 
+	vif->disabled = false;
+
 	vif->credit_bytes = vif->remaining_credit = ~0UL;
 	vif->credit_usec  = 0UL;
 	init_timer(&vif->credit_timeout);
-	/* Initialize 'expires' now: it's used to track the credit window. */
-	vif->credit_timeout.expires = jiffies;
+	vif->credit_window_start = get_jiffies_64();
 
 	dev->netdev_ops	= &xenvif_netdev_ops;
 	dev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;

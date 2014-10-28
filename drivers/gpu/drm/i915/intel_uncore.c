@@ -166,6 +166,8 @@ static void vlv_force_wake_reset(struct drm_i915_private *dev_priv)
 {
 	__raw_i915_write32(dev_priv, FORCEWAKE_VLV,
 			   _MASKED_BIT_DISABLE(0xffff));
+	__raw_i915_write32(dev_priv, FORCEWAKE_MEDIA_VLV,
+			   _MASKED_BIT_DISABLE(0xffff));
 	/* something from same cacheline, but !FORCEWAKE_VLV */
 	__raw_posting_read(dev_priv, FORCEWAKE_ACK_VLV);
 }
@@ -202,6 +204,19 @@ static void vlv_force_wake_put(struct drm_i915_private *dev_priv)
 			   _MASKED_BIT_DISABLE(FORCEWAKE_KERNEL));
 	/* The below doubles as a POSTING_READ */
 	gen6_gt_check_fifodbg(dev_priv);
+}
+
+static void intel_uncore_forcewake_reset(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	if (IS_VALLEYVIEW(dev)) {
+		vlv_force_wake_reset(dev_priv);
+	} else if (INTEL_INFO(dev)->gen >= 6) {
+		__gen6_gt_force_wake_reset(dev_priv);
+		if (IS_IVYBRIDGE(dev) || IS_HASWELL(dev))
+			__gen6_gt_force_wake_mt_reset(dev_priv);
+	}
 }
 
 void intel_uncore_early_sanitize(struct drm_device *dev)
@@ -259,19 +274,8 @@ void intel_uncore_init(struct drm_device *dev)
 		dev_priv->uncore.funcs.force_wake_put =
 			__gen6_gt_force_wake_put;
 	}
-}
 
-static void intel_uncore_forcewake_reset(struct drm_device *dev)
-{
-	struct drm_i915_private *dev_priv = dev->dev_private;
-
-	if (IS_VALLEYVIEW(dev)) {
-		vlv_force_wake_reset(dev_priv);
-	} else if (INTEL_INFO(dev)->gen >= 6) {
-		__gen6_gt_force_wake_reset(dev_priv);
-		if (IS_IVYBRIDGE(dev) || IS_HASWELL(dev))
-			__gen6_gt_force_wake_mt_reset(dev_priv);
-	}
+	intel_uncore_forcewake_reset(dev);
 }
 
 void intel_uncore_sanitize(struct drm_device *dev)

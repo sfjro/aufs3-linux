@@ -51,6 +51,7 @@ static struct nouveau_dsm_priv {
 	bool dsm_detected;
 	bool optimus_detected;
 	acpi_handle dhandle;
+	acpi_handle other_handle;
 	acpi_handle rom_handle;
 } nouveau_dsm_priv;
 
@@ -65,6 +66,7 @@ bool nouveau_is_v1_dsm(void) {
 #define NOUVEAU_DSM_HAS_MUX 0x1
 #define NOUVEAU_DSM_HAS_OPT 0x2
 
+#ifdef CONFIG_VGA_SWITCHEROO
 static const char nouveau_dsm_muid[] = {
 	0xA0, 0xA0, 0x95, 0x9D, 0x60, 0x00, 0x48, 0x4D,
 	0xB3, 0x4D, 0x7E, 0x5F, 0xEA, 0x12, 0x9F, 0xD4,
@@ -253,19 +255,17 @@ static struct vga_switcheroo_handler nouveau_dsm_handler = {
 
 static int nouveau_dsm_pci_probe(struct pci_dev *pdev)
 {
-	acpi_handle dhandle, nvidia_handle;
-	acpi_status status;
+	acpi_handle dhandle;
 	int retval = 0;
 
 	dhandle = DEVICE_ACPI_HANDLE(&pdev->dev);
 	if (!dhandle)
 		return false;
 
-	status = acpi_get_handle(dhandle, "_DSM", &nvidia_handle);
-	if (ACPI_FAILURE(status)) {
+	if (!acpi_has_method(dhandle, "_DSM")) {
+		nouveau_dsm_priv.other_handle = dhandle;
 		return false;
 	}
-
 	if (nouveau_test_dsm(dhandle, nouveau_dsm, NOUVEAU_DSM_POWER))
 		retval |= NOUVEAU_DSM_HAS_MUX;
 
@@ -331,6 +331,16 @@ static bool nouveau_dsm_detect(void)
 		printk(KERN_INFO "VGA switcheroo: detected DSM switching method %s handle\n",
 			acpi_method_name);
 		nouveau_dsm_priv.dsm_detected = true;
+		/*
+		 * On some systems hotplug events are generated for the device
+		 * being switched off when _DSM is executed.  They cause ACPI
+		 * hotplug to trigger and attempt to remove the device from
+		 * the system, which causes it to break down.  Prevent that from
+		 * happening by setting the no_hotplug flag for the involved
+		 * ACPI device objects.
+		 */
+		acpi_bus_no_hotplug(nouveau_dsm_priv.dhandle);
+		acpi_bus_no_hotplug(nouveau_dsm_priv.other_handle);
 		ret = true;
 	}
 
@@ -369,6 +379,11 @@ void nouveau_unregister_dsm_handler(void)
 	if (nouveau_dsm_priv.optimus_detected || nouveau_dsm_priv.dsm_detected)
 		vga_switcheroo_unregister_handler();
 }
+#else
+void nouveau_register_dsm_handler(void) {}
+void nouveau_unregister_dsm_handler(void) {}
+void nouveau_switcheroo_optimus_dsm(void) {}
+#endif
 
 /* retrieve the ROM in 4k blocks */
 static int nouveau_rom_call(acpi_handle rom_handle, uint8_t *bios,
@@ -403,9 +418,6 @@ bool nouveau_acpi_rom_supported(struct pci_dev *pdev)
 {
 	acpi_status status;
 	acpi_handle dhandle, rom_handle;
-
-	if (!nouveau_dsm_priv.dsm_detected && !nouveau_dsm_priv.optimus_detected)
-		return false;
 
 	dhandle = DEVICE_ACPI_HANDLE(&pdev->dev);
 	if (!dhandle)

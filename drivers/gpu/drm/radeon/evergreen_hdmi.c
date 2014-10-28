@@ -81,7 +81,7 @@ static void dce4_afmt_write_speaker_allocation(struct drm_encoder *encoder)
 	}
 
 	sad_count = drm_edid_to_speaker_allocation(radeon_connector->edid, &sadb);
-	if (sad_count < 0) {
+	if (sad_count <= 0) {
 		DRM_ERROR("Couldn't read Speaker Allocation Data Block: %d\n", sad_count);
 		return;
 	}
@@ -134,7 +134,7 @@ static void evergreen_hdmi_write_sad_regs(struct drm_encoder *encoder)
 	}
 
 	sad_count = drm_edid_to_sad(radeon_connector->edid, &sads);
-	if (sad_count < 0) {
+	if (sad_count <= 0) {
 		DRM_ERROR("Couldn't read SADs: %d\n", sad_count);
 		return;
 	}
@@ -257,6 +257,15 @@ void evergreen_hdmi_setmode(struct drm_encoder *encoder, struct drm_display_mode
 		return;
 	offset = dig->afmt->offset;
 
+	/* disable audio prior to setting up hw */
+	if (ASIC_IS_DCE6(rdev)) {
+		dig->afmt->pin = dce6_audio_get_pin(rdev);
+		dce6_audio_enable(rdev, dig->afmt->pin, false);
+	} else {
+		dig->afmt->pin = r600_audio_get_pin(rdev);
+		r600_audio_enable(rdev, dig->afmt->pin, false);
+	}
+
 	evergreen_audio_set_dto(encoder, mode->clock);
 
 	WREG32(HDMI_VBI_PACKET_CONTROL + offset,
@@ -358,12 +367,16 @@ void evergreen_hdmi_setmode(struct drm_encoder *encoder, struct drm_display_mode
 	WREG32(AFMT_RAMP_CONTROL1 + offset, 0x007FFFFF);
 	WREG32(AFMT_RAMP_CONTROL2 + offset, 0x00000001);
 	WREG32(AFMT_RAMP_CONTROL3 + offset, 0x00000001);
+
+	/* enable audio after to setting up hw */
+	if (ASIC_IS_DCE6(rdev))
+		dce6_audio_enable(rdev, dig->afmt->pin, true);
+	else
+		r600_audio_enable(rdev, dig->afmt->pin, true);
 }
 
 void evergreen_hdmi_enable(struct drm_encoder *encoder, bool enable)
 {
-	struct drm_device *dev = encoder->dev;
-	struct radeon_device *rdev = dev->dev_private;
 	struct radeon_encoder *radeon_encoder = to_radeon_encoder(encoder);
 	struct radeon_encoder_atom_dig *dig = radeon_encoder->enc_priv;
 
@@ -375,15 +388,6 @@ void evergreen_hdmi_enable(struct drm_encoder *encoder, bool enable)
 		return;
 	if (!enable && !dig->afmt->enabled)
 		return;
-
-	if (enable) {
-		if (ASIC_IS_DCE6(rdev))
-			dig->afmt->pin = dce6_audio_get_pin(rdev);
-		else
-			dig->afmt->pin = r600_audio_get_pin(rdev);
-	} else {
-		dig->afmt->pin = NULL;
-	}
 
 	dig->afmt->enabled = enable;
 

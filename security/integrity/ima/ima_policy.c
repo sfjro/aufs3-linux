@@ -73,7 +73,6 @@ static struct ima_rule_entry default_rules[] = {
 	{.action = DONT_MEASURE,.fsmagic = SYSFS_MAGIC,.flags = IMA_FSMAGIC},
 	{.action = DONT_MEASURE,.fsmagic = DEBUGFS_MAGIC,.flags = IMA_FSMAGIC},
 	{.action = DONT_MEASURE,.fsmagic = TMPFS_MAGIC,.flags = IMA_FSMAGIC},
-	{.action = DONT_MEASURE,.fsmagic = RAMFS_MAGIC,.flags = IMA_FSMAGIC},
 	{.action = DONT_MEASURE,.fsmagic = DEVPTS_SUPER_MAGIC,.flags = IMA_FSMAGIC},
 	{.action = DONT_MEASURE,.fsmagic = BINFMTFS_MAGIC,.flags = IMA_FSMAGIC},
 	{.action = DONT_MEASURE,.fsmagic = SECURITYFS_MAGIC,.flags = IMA_FSMAGIC},
@@ -352,7 +351,7 @@ enum {
 	Opt_obj_user, Opt_obj_role, Opt_obj_type,
 	Opt_subj_user, Opt_subj_role, Opt_subj_type,
 	Opt_func, Opt_mask, Opt_fsmagic, Opt_uid, Opt_fowner,
-	Opt_appraise_type, Opt_fsuuid
+	Opt_appraise_type, Opt_fsuuid, Opt_permit_directio
 };
 
 static match_table_t policy_tokens = {
@@ -374,6 +373,7 @@ static match_table_t policy_tokens = {
 	{Opt_uid, "uid=%s"},
 	{Opt_fowner, "fowner=%s"},
 	{Opt_appraise_type, "appraise_type=%s"},
+	{Opt_permit_directio, "permit_directio"},
 	{Opt_err, NULL}
 };
 
@@ -621,6 +621,9 @@ static int ima_parse_rule(char *rule, struct ima_rule_entry *entry)
 				entry->flags |= IMA_DIGSIG_REQUIRED;
 			else
 				result = -EINVAL;
+			break;
+		case Opt_permit_directio:
+			entry->flags |= IMA_PERMIT_DIRECTIO;
 			break;
 		case Opt_err:
 			ima_log_string(ab, "UNKNOWN", p);

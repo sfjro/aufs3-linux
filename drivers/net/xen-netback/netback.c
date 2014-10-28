@@ -39,6 +39,7 @@
 #include <linux/udp.h>
 
 #include <net/tcp.h>
+#include <net/ip6_checksum.h>
 
 #include <xen/xen.h>
 #include <xen/events.h>
@@ -205,8 +206,8 @@ static bool start_new_rx_buffer(int offset, unsigned long size, int head)
 	 * into multiple copies tend to give large frags their
 	 * own buffers as before.
 	 */
-	if ((offset + size > MAX_BUFFER_OFFSET) &&
-	    (size <= MAX_BUFFER_OFFSET) && offset && !head)
+	BUG_ON(size > MAX_BUFFER_OFFSET);
+	if ((offset + size > MAX_BUFFER_OFFSET) && offset && !head)
 		return true;
 
 	return false;
@@ -730,7 +731,8 @@ static void xenvif_tx_err(struct xenvif *vif,
 static void xenvif_fatal_tx_err(struct xenvif *vif)
 {
 	netdev_err(vif->dev, "fatal error; disabling device\n");
-	xenvif_carrier_off(vif);
+	vif->disabled = true;
+	xenvif_kick_thread(vif);
 }
 
 static int xenvif_count_requests(struct xenvif *vif,
@@ -1185,9 +1187,8 @@ out:
 
 static bool tx_credit_exceeded(struct xenvif *vif, unsigned size)
 {
-	unsigned long now = jiffies;
-	unsigned long next_credit =
-		vif->credit_timeout.expires +
+	u64 now = get_jiffies_64();
+	u64 next_credit = vif->credit_window_start +
 		msecs_to_jiffies(vif->credit_usec / 1000);
 
 	/* Timer could already be pending in rare cases. */
@@ -1195,8 +1196,8 @@ static bool tx_credit_exceeded(struct xenvif *vif, unsigned size)
 		return true;
 
 	/* Passed the point where we can replenish credit? */
-	if (time_after_eq(now, next_credit)) {
-		vif->credit_timeout.expires = now;
+	if (time_after_eq64(now, next_credit)) {
+		vif->credit_window_start = now;
 		tx_add_credit(vif);
 	}
 
@@ -1208,6 +1209,7 @@ static bool tx_credit_exceeded(struct xenvif *vif, unsigned size)
 			tx_credit_callback;
 		mod_timer(&vif->credit_timeout,
 			  next_credit);
+		vif->credit_window_start = next_credit;
 
 		return true;
 	}
@@ -1241,7 +1243,7 @@ static unsigned xenvif_tx_build_gops(struct xenvif *vif)
 				   vif->tx.sring->req_prod, vif->tx.req_cons,
 				   XEN_NETIF_TX_RING_SIZE);
 			xenvif_fatal_tx_err(vif);
-			continue;
+			break;
 		}
 
 		RING_FINAL_CHECK_FOR_REQUESTS(&vif->tx, work_to_do);
@@ -1641,7 +1643,18 @@ int xenvif_kthread(void *data)
 	while (!kthread_should_stop()) {
 		wait_event_interruptible(vif->wq,
 					 rx_work_todo(vif) ||
+					 vif->disabled ||
 					 kthread_should_stop());
+
+		/* This frontend is found to be rogue, disable it in
+		 * kthread context. Currently this is only set when
+		 * netback finds out frontend sends malformed packet,
+		 * but we cannot disable the interface in softirq
+		 * context so we defer it here.
+		 */
+		if (unlikely(vif->disabled && netif_carrier_ok(vif->dev)))
+			xenvif_carrier_off(vif);
+
 		if (kthread_should_stop())
 			break;
 
