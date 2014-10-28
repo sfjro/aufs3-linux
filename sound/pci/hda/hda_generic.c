@@ -2857,9 +2857,11 @@ static bool look_for_mix_leaf_ctls(struct hda_codec *codec, hda_nid_t mix_nid,
 	if (num_conns < idx)
 		return false;
 	nid = list[idx];
-	if (!*mix_val && nid_has_volume(codec, nid, HDA_OUTPUT))
+	if (!*mix_val && nid_has_volume(codec, nid, HDA_OUTPUT) &&
+	    !is_ctl_associated(codec, nid, HDA_OUTPUT, 0, NID_PATH_VOL_CTL))
 		*mix_val = HDA_COMPOSE_AMP_VAL(nid, 3, 0, HDA_OUTPUT);
-	if (!*mute_val && nid_has_mute(codec, nid, HDA_OUTPUT))
+	if (!*mute_val && nid_has_mute(codec, nid, HDA_OUTPUT) &&
+	    !is_ctl_associated(codec, nid, HDA_OUTPUT, 0, NID_PATH_MUTE_CTL))
 		*mute_val = HDA_COMPOSE_AMP_VAL(nid, 3, 0, HDA_OUTPUT);
 
 	return *mix_val || *mute_val;
@@ -3262,7 +3264,7 @@ static int cap_put_caller(struct snd_kcontrol *kcontrol,
 	mutex_unlock(&codec->control_mutex);
 	snd_hda_codec_flush_cache(codec); /* flush the updates */
 	if (err >= 0 && spec->cap_sync_hook)
-		spec->cap_sync_hook(codec, ucontrol);
+		spec->cap_sync_hook(codec, kcontrol, ucontrol);
 	return err;
 }
 
@@ -3383,7 +3385,7 @@ static int cap_single_sw_put(struct snd_kcontrol *kcontrol,
 		return ret;
 
 	if (spec->cap_sync_hook)
-		spec->cap_sync_hook(codec, ucontrol);
+		spec->cap_sync_hook(codec, kcontrol, ucontrol);
 
 	return ret;
 }
@@ -3788,7 +3790,7 @@ static int mux_select(struct hda_codec *codec, unsigned int adc_idx,
 		return 0;
 	snd_hda_activate_path(codec, path, true, false);
 	if (spec->cap_sync_hook)
-		spec->cap_sync_hook(codec, NULL);
+		spec->cap_sync_hook(codec, NULL, NULL);
 	path_power_down_sync(codec, old_path);
 	return 1;
 }
@@ -5231,7 +5233,7 @@ static void init_input_src(struct hda_codec *codec)
 	}
 
 	if (spec->cap_sync_hook)
-		spec->cap_sync_hook(codec, NULL);
+		spec->cap_sync_hook(codec, NULL, NULL);
 }
 
 /* set right pin controls for digital I/O */

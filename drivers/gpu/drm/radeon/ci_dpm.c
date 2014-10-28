@@ -820,6 +820,9 @@ static int ci_set_thermal_temperature_range(struct radeon_device *rdev,
 	WREG32_SMC(CG_THERMAL_CTRL, tmp);
 #endif
 
+	rdev->pm.dpm.thermal.min_temp = low_temp;
+	rdev->pm.dpm.thermal.max_temp = high_temp;
+
 	return 0;
 }
 
@@ -1130,7 +1133,7 @@ static int ci_stop_dpm(struct radeon_device *rdev)
 	tmp &= ~GLOBAL_PWRMGT_EN;
 	WREG32_SMC(GENERAL_PWRMGT, tmp);
 
-	tmp = RREG32(SCLK_PWRMGT_CNTL);
+	tmp = RREG32_SMC(SCLK_PWRMGT_CNTL);
 	tmp &= ~DYNAMIC_PM_EN;
 	WREG32_SMC(SCLK_PWRMGT_CNTL, tmp);
 
@@ -5097,6 +5100,10 @@ int ci_dpm_init(struct radeon_device *rdev)
 	pi->sclk_dpm_key_disabled = 0;
 	pi->mclk_dpm_key_disabled = 0;
 	pi->pcie_dpm_key_disabled = 0;
+
+	/* mclk dpm is unstable on some R7 260X cards */
+	if (rdev->pdev->device == 0x6658)
+		pi->mclk_dpm_key_disabled = 1;
 
 	pi->caps_sclk_ds = true;
 
