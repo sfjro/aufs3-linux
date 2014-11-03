@@ -40,7 +40,7 @@ extern spinlock_t inode_sb_list_lock;
 /* default MAX_LOCKDEP_SUBCLASSES(8) is not enough */
 /* reduce? gave up. */
 enum {
-	AuLsc_I_Begin = I_MUTEX_NONDIR2, /* 4 */
+	AuLsc_I_Begin = I_MUTEX_PARENT2, /* 5 */
 	AuLsc_I_PARENT,		/* lower inode, parent first */
 	AuLsc_I_PARENT2,	/* copyup dirs */
 	AuLsc_I_PARENT3,	/* copyup wh */
