@@ -311,12 +311,14 @@ AuStubInt0(au_cpup_xattr, struct dentry *h_dst, struct dentry *h_src,
 
 #ifdef CONFIG_FS_POSIX_ACL
 struct posix_acl *aufs_get_acl(struct inode *inode, int type);
+int aufs_set_acl(struct inode *inode, struct posix_acl *acl, int type);
 #endif
 
 #if IS_ENABLED(CONFIG_AUFS_XATTR) || IS_ENABLED(CONFIG_FS_POSIX_ACL)
 enum {
 	AU_XATTR_SET,
-	AU_XATTR_REMOVE
+	AU_XATTR_REMOVE,
+	AU_ACL_SET
 };
 
 struct au_srxattr {
@@ -331,6 +333,10 @@ struct au_srxattr {
 		struct {
 			const char	*name;
 		} remove;
+		struct {
+			struct posix_acl *acl;
+			int		type;
+		} acl_set;
 	} u;
 };
 ssize_t au_srxattr(struct dentry *dentry, struct au_srxattr *arg);

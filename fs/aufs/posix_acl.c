@@ -58,3 +58,42 @@ out:
 	AuTraceErrPtr(acl);
 	return acl;
 }
+
+int aufs_set_acl(struct inode *inode, struct posix_acl *acl, int type)
+{
+	int err;
+	ssize_t ssz;
+	struct dentry *dentry;
+	struct au_srxattr arg = {
+		.type = AU_ACL_SET,
+		.u.acl_set = {
+			.acl	= acl,
+			.type	= type
+		},
+	};
+
+	mutex_lock(&inode->i_mutex);
+	if (inode->i_ino == AUFS_ROOT_INO)
+		dentry = dget(inode->i_sb->s_root);
+	else {
+		dentry = d_find_alias(inode);
+		if (!dentry)
+			dentry = d_find_any_alias(inode);
+		if (!dentry) {
+			pr_warn("cannot handle this inode, "
+				"please report to aufs-users ML\n");
+			err = -ENOENT;
+			goto out;
+		}
+	}
+
+	ssz = au_srxattr(dentry, &arg);
+	dput(dentry);
+	err = ssz;
+	if (ssz >= 0)
+		err = 0;
+
+out:
+	mutex_unlock(&inode->i_mutex);
+	return err;
+}

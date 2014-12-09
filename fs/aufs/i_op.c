@@ -882,7 +882,7 @@ ssize_t au_srxattr(struct dentry *dentry, struct au_srxattr *arg)
 	struct path h_path;
 	struct super_block *sb;
 	struct au_icpup_args *a;
-	struct inode *inode;
+	struct inode *inode, *h_inode;
 
 	inode = dentry->d_inode;
 	IMustLock(inode);
@@ -912,6 +912,14 @@ ssize_t au_srxattr(struct dentry *dentry, struct au_srxattr *arg)
 		break;
 	case AU_XATTR_REMOVE:
 		err = vfsub_removexattr(h_path.dentry, arg->u.remove.name);
+		break;
+	case AU_ACL_SET:
+		err = -EOPNOTSUPP;
+		h_inode = h_path.dentry->d_inode;
+		if (h_inode->i_op->set_acl)
+			err = h_inode->i_op->set_acl(h_inode,
+						     arg->u.acl_set.acl,
+						     arg->u.acl_set.type);
 		break;
 	}
 	if (!err)
@@ -1209,6 +1217,7 @@ struct inode_operations aufs_symlink_iop = {
 	.permission	= aufs_permission,
 #ifdef CONFIG_FS_POSIX_ACL
 	.get_acl	= aufs_get_acl,
+	.set_acl	= aufs_set_acl, /* unsupport for symlink? */
 #endif
 
 	.setattr	= aufs_setattr,
@@ -1242,6 +1251,7 @@ struct inode_operations aufs_dir_iop = {
 	.permission	= aufs_permission,
 #ifdef CONFIG_FS_POSIX_ACL
 	.get_acl	= aufs_get_acl,
+	.set_acl	= aufs_set_acl,
 #endif
 
 	.setattr	= aufs_setattr,
@@ -1264,6 +1274,7 @@ struct inode_operations aufs_iop = {
 	.permission	= aufs_permission,
 #ifdef CONFIG_FS_POSIX_ACL
 	.get_acl	= aufs_get_acl,
+	.set_acl	= aufs_set_acl,
 #endif
 
 	.setattr	= aufs_setattr,
