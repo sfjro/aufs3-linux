@@ -309,6 +309,9 @@ AuStubInt0(au_cpup_xattr, struct dentry *h_dst, struct dentry *h_src,
 /* AuStubVoid(au_xattr_init, struct super_block *sb); */
 #endif
 
+#ifdef CONFIG_FS_POSIX_ACL
+struct posix_acl *aufs_get_acl(struct inode *inode, int type);
+#endif
 
 /* ---------------------------------------------------------------------- */
 
