@@ -113,6 +113,7 @@ int au_cpup_xattr(struct dentry *h_dst, struct dentry *h_src, int ignore_flags)
 	ssz = vfs_listxattr(h_src, NULL, 0);
 	err = ssz;
 	if (unlikely(err < 0)) {
+		AuTraceErr(err);
 		if (err == -ENODATA
 		    || err == -EOPNOTSUPP)
 			err = 0;	/* ignore */
