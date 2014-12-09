@@ -313,6 +313,29 @@ AuStubInt0(au_cpup_xattr, struct dentry *h_dst, struct dentry *h_src,
 struct posix_acl *aufs_get_acl(struct inode *inode, int type);
 #endif
 
+#if IS_ENABLED(CONFIG_AUFS_XATTR) || IS_ENABLED(CONFIG_FS_POSIX_ACL)
+enum {
+	AU_XATTR_SET,
+	AU_XATTR_REMOVE
+};
+
+struct au_srxattr {
+	int type;
+	union {
+		struct {
+			const char	*name;
+			const void	*value;
+			size_t		size;
+			int		flags;
+		} set;
+		struct {
+			const char	*name;
+		} remove;
+	} u;
+};
+ssize_t au_srxattr(struct dentry *dentry, struct au_srxattr *arg);
+#endif
+
 /* ---------------------------------------------------------------------- */
 
 /* lock subclass for iinfo */
