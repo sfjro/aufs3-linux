@@ -291,10 +291,43 @@ int aufs_removexattr(struct dentry *dentry, const char *name);
 
 /* void au_xattr_init(struct super_block *sb); */
 #else
-AuStubInt0(au_cpup_xattr, h_dst, h_src, ignore_flags)
+AuStubInt0(au_cpup_xattr, struct dentry *h_dst, struct dentry *h_src,
+	   int ignore_flags);
 /* AuStubVoid(au_xattr_init, struct super_block *sb); */
 #endif
 
+#ifdef CONFIG_FS_POSIX_ACL
+struct posix_acl *aufs_get_acl(struct inode *inode, int type);
+int aufs_set_acl(struct inode *inode, struct posix_acl *acl, int type);
+#endif
+
+#if IS_ENABLED(CONFIG_AUFS_XATTR) || IS_ENABLED(CONFIG_FS_POSIX_ACL)
+enum {
+	AU_XATTR_SET,
+	AU_XATTR_REMOVE,
+	AU_ACL_SET
+};
+
+struct au_srxattr {
+	int type;
+	union {
+		struct {
+			const char	*name;
+			const void	*value;
+			size_t		size;
+			int		flags;
+		} set;
+		struct {
+			const char	*name;
+		} remove;
+		struct {
+			struct posix_acl *acl;
+			int		type;
+		} acl_set;
+	} u;
+};
+ssize_t au_srxattr(struct dentry *dentry, struct au_srxattr *arg);
+#endif
 
 /* ---------------------------------------------------------------------- */
 
