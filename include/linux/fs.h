@@ -2074,7 +2074,6 @@ extern int filp_close(struct file *, fl_owner_t id);
 
 extern struct filename *getname(const char __user *);
 extern struct filename *getname_kernel(const char *);
-int check_acl(struct inode *, int);
 
 enum {
 	FILE_CREATED = 1,
