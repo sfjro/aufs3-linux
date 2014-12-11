@@ -250,7 +250,7 @@ void putname(struct filename *name)
 }
 #endif
 
-int check_acl(struct inode *inode, int mask)
+static int check_acl(struct inode *inode, int mask)
 {
 #ifdef CONFIG_FS_POSIX_ACL
 	struct posix_acl *acl;
