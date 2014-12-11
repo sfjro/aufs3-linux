@@ -139,81 +139,6 @@ out:
 	return err;
 }
 
-#ifdef CONFIG_FS_POSIX_ACL
-static struct posix_acl *aufs_get_acl(struct inode *inode, int mask)
-{
-	struct posix_acl *acl;
-	int err;
-	aufs_bindex_t bindex, bend;
-	const unsigned char isdir = !!S_ISDIR(inode->i_mode),
-		write_mask = !!(mask & (MAY_WRITE | MAY_APPEND));
-	struct inode *h_inode;
-	struct super_block *sb;
-
-	WARN_ON(mask & MAY_NOT_BLOCK);
-
-	err = 0;
-	sb = inode->i_sb;
-	si_read_lock(sb, AuLock_FLUSH);
-	ii_read_lock_child(inode);
-	if (!(sb->s_flags & MS_POSIXACL))
-		goto out_ii;
-
-	err = au_busy_or_stale();
-	bindex = au_ibstart(inode);
-	h_inode = au_h_iptr(inode, bindex);
-	if (unlikely(!h_inode
-		     || (h_inode->i_mode & S_IFMT) != (inode->i_mode & S_IFMT)))
-		goto out_ii;
-
-	/* cf: fs/namei.c:acl_permission_check() */
-	err = -EAGAIN;
-	if (!IS_POSIXACL(h_inode))
-		goto out_ii;
-
-	if (!isdir
-	    || write_mask
-	    || au_opt_test(au_mntflags(sb), DIRPERM1)) {
-		err = check_acl(h_inode, mask);
-		if (unlikely(err && err != -EAGAIN))
-			goto out_ii;
-
-		if (write_mask
-		    && !special_file(h_inode->i_mode)) {
-			/* test whether the upper writable branch exists */
-			err = -EROFS;
-			for (; bindex >= 0; bindex--)
-				if (!au_br_rdonly(au_sbr(sb, bindex))) {
-					err = 0;
-					break;
-				}
-		}
-		goto out_ii;
-	}
-
-	/* non-write to dir */
-	err = 0;
-	bend = au_ibend(inode);
-	for (; (!err || err == -EAGAIN) && bindex <= bend; bindex++) {
-		h_inode = au_h_iptr(inode, bindex);
-		if (h_inode) {
-			err = au_busy_or_stale();
-			if (unlikely(!S_ISDIR(h_inode->i_mode)))
-				break;
-
-			err = check_acl(h_inode, mask);
-		}
-	}
-
-out_ii:
-	ii_read_unlock(inode);
-	si_read_unlock(sb);
-	acl = ERR_PTR(err);
-
-	return acl;
-}
-#endif
-
 /* ---------------------------------------------------------------------- */
 
 static struct dentry *aufs_lookup(struct inode *dir, struct dentry *dentry,
@@ -924,6 +849,99 @@ out:
 	return err;
 }
 
+#if IS_ENABLED(CONFIG_AUFS_XATTR) || IS_ENABLED(CONFIG_FS_POSIX_ACL)
+static int au_h_path_to_set_attr(struct dentry *dentry,
+				 struct au_icpup_args *a, struct path *h_path)
+{
+	int err;
+	struct super_block *sb;
+
+	sb = dentry->d_sb;
+	a->udba = au_opt_udba(sb);
+	/* no d_unlinked(), to set UDBA_NONE for root */
+	if (d_unhashed(dentry))
+		a->udba = AuOpt_UDBA_NONE;
+	if (a->udba != AuOpt_UDBA_NONE) {
+		AuDebugOn(IS_ROOT(dentry));
+		err = au_reval_for_attr(dentry, au_sigen(sb));
+		if (unlikely(err))
+			goto out;
+	}
+	err = au_pin_and_icpup(dentry, /*ia*/NULL, a);
+	if (unlikely(err < 0))
+		goto out;
+
+	h_path->dentry = a->h_path.dentry;
+	h_path->mnt = au_sbr_mnt(sb, a->btgt);
+
+out:
+	return err;
+}
+
+ssize_t au_srxattr(struct dentry *dentry, struct au_srxattr *arg)
+{
+	int err;
+	struct path h_path;
+	struct super_block *sb;
+	struct au_icpup_args *a;
+	struct inode *inode, *h_inode;
+
+	inode = dentry->d_inode;
+	IMustLock(inode);
+
+	err = -ENOMEM;
+	a = kzalloc(sizeof(*a), GFP_NOFS);
+	if (unlikely(!a))
+		goto out;
+
+	sb = dentry->d_sb;
+	err = si_read_lock(sb, AuLock_FLUSH | AuLock_NOPLM);
+	if (unlikely(err))
+		goto out_kfree;
+
+	h_path.dentry = NULL;	/* silence gcc */
+	di_write_lock_child(dentry);
+	err = au_h_path_to_set_attr(dentry, a, &h_path);
+	if (unlikely(err))
+		goto out_di;
+
+	mutex_unlock(&a->h_inode->i_mutex);
+	switch (arg->type) {
+	case AU_XATTR_SET:
+		err = vfsub_setxattr(h_path.dentry,
+				     arg->u.set.name, arg->u.set.value,
+				     arg->u.set.size, arg->u.set.flags);
+		break;
+	case AU_XATTR_REMOVE:
+		err = vfsub_removexattr(h_path.dentry, arg->u.remove.name);
+		break;
+	case AU_ACL_SET:
+		err = -EOPNOTSUPP;
+		h_inode = h_path.dentry->d_inode;
+		if (h_inode->i_op->set_acl)
+			err = h_inode->i_op->set_acl(h_inode,
+						     arg->u.acl_set.acl,
+						     arg->u.acl_set.type);
+		break;
+	}
+	if (!err)
+		au_cpup_attr_timesizes(inode);
+
+	au_unpin(&a->pin);
+	if (unlikely(err))
+		au_update_dbstart(dentry);
+
+out_di:
+	di_write_unlock(dentry);
+	si_read_unlock(sb);
+out_kfree:
+	kfree(a);
+out:
+	AuTraceErr(err);
+	return err;
+}
+#endif
+
 static void au_refresh_iattr(struct inode *inode, struct kstat *st,
 			     unsigned int nlink)
 {
@@ -1201,6 +1219,7 @@ struct inode_operations aufs_symlink_iop = {
 	.permission	= aufs_permission,
 #ifdef CONFIG_FS_POSIX_ACL
 	.get_acl	= aufs_get_acl,
+	.set_acl	= aufs_set_acl, /* unsupport for symlink? */
 #endif
 
 	.setattr	= aufs_setattr,
@@ -1234,6 +1253,7 @@ struct inode_operations aufs_dir_iop = {
 	.permission	= aufs_permission,
 #ifdef CONFIG_FS_POSIX_ACL
 	.get_acl	= aufs_get_acl,
+	.set_acl	= aufs_set_acl,
 #endif
 
 	.setattr	= aufs_setattr,
@@ -1256,6 +1276,7 @@ struct inode_operations aufs_iop = {
 	.permission	= aufs_permission,
 #ifdef CONFIG_FS_POSIX_ACL
 	.get_acl	= aufs_get_acl,
+	.set_acl	= aufs_set_acl,
 #endif
 
 	.setattr	= aufs_setattr,
