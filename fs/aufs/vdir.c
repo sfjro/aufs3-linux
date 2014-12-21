@@ -629,7 +629,7 @@ static int read_vdir(struct file *file, int may_read)
 	unsigned char do_read;
 	struct fillvdir_arg arg = {
 		.ctx = {
-			.actor = au_diractor(fillvdir)
+			.actor = fillvdir
 		}
 	};
 	struct inode *inode;

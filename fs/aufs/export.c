@@ -372,7 +372,7 @@ static struct dentry *au_lkup_by_ino(struct path *path, ino_t ino,
 	struct inode *dir;
 	struct find_name_by_ino arg = {
 		.ctx = {
-			.actor = au_diractor(find_name_by_ino)
+			.actor = find_name_by_ino
 		}
 	};
 	int err;

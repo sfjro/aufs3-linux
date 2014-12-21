@@ -553,7 +553,7 @@ int au_test_empty_lower(struct dentry *dentry)
 	struct au_nhash whlist;
 	struct test_empty_arg arg = {
 		.ctx = {
-			.actor = au_diractor(test_empty_cb)
+			.actor = test_empty_cb
 		}
 	};
 	int (*test_empty)(struct dentry *dentry, struct test_empty_arg *arg);
@@ -603,7 +603,7 @@ int au_test_empty(struct dentry *dentry, struct au_nhash *whlist)
 	int err;
 	struct test_empty_arg arg = {
 		.ctx = {
-			.actor = au_diractor(test_empty_cb)
+			.actor = test_empty_cb
 		}
 	};
 	aufs_bindex_t bindex, btail;

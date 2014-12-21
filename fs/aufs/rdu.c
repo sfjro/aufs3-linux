@@ -125,7 +125,7 @@ static int au_rdu(struct file *file, struct aufs_rdu *rdu)
 	aufs_bindex_t bend;
 	struct au_rdu_arg arg = {
 		.ctx = {
-			.actor = au_diractor(au_rdu_fill)
+			.actor = au_rdu_fill
 		}
 	};
 	struct dentry *dentry;
