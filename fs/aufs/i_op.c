@@ -213,15 +213,6 @@ static struct dentry *aufs_lookup(struct inode *dir, struct dentry *dentry,
 	if (inode)
 		atomic_inc(&inode->i_count);
 	ret = d_splice_alias(inode, dentry);
-	if (IS_ERR(ret)
-	    && PTR_ERR(ret) == -EIO
-	    && inode
-	    && S_ISDIR(inode->i_mode)) {
-		atomic_inc(&inode->i_count);
-		ret = d_materialise_unique(dentry, inode);
-		if (!IS_ERR(ret))
-			ii_write_unlock(inode);
-	}
 #if 0
 	if (unlikely(d_need_lookup(dentry))) {
 		spin_lock(&dentry->d_lock);
@@ -230,9 +221,11 @@ static struct dentry *aufs_lookup(struct inode *dir, struct dentry *dentry,
 	} else
 #endif
 	if (inode) {
-		if (!IS_ERR(ret))
+		if (!IS_ERR(ret)) {
 			iput(inode);
-		else {
+			if (ret && ret != dentry)
+				ii_write_unlock(inode);
+		} else {
 			ii_write_unlock(inode);
 			iput(inode);
 			inode = NULL;
