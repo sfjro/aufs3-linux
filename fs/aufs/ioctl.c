@@ -59,7 +59,7 @@ static int au_wbr_fd(struct path *path, struct aufs_wbr_fd __user *arg)
 			goto out;
 	}
 
-	fd = get_unused_fd();
+	fd = get_unused_fd_flags(0);
 	err = fd;
 	if (unlikely(fd < 0))
 		goto out;
