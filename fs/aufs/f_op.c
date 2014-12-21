@@ -491,7 +491,7 @@ static long aufs_fallocate(struct file *file, int mode, loff_t offset,
 	fi_write_unlock(file);
 
 	lockdep_off();
-	err = do_fallocate(h_file, mode, offset, len);
+	err = vfs_fallocate(h_file, mode, offset, len);
 	lockdep_on();
 	ii_write_lock_child(inode);
 	au_cpup_attr_timesizes(inode);
