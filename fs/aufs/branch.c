@@ -537,7 +537,7 @@ int au_br_add(struct super_block *sb, struct au_opt_add *add, int remount)
 	    && au_br_writable(add_branch->br_perm)
 	    && !au_test_fs_bad_xino(h_dentry->d_sb)
 	    && add_branch->br_xino.xi_file
-	    && add_branch->br_xino.xi_file->f_dentry->d_parent == h_dentry)
+	    && add_branch->br_xino.xi_file->f_path.dentry->d_parent == h_dentry)
 		au_xino_brid_set(sb, add_branch->br_id);
 
 out:
@@ -766,7 +766,7 @@ static int test_dir_busy(struct file *file, aufs_bindex_t br_id,
 	struct au_hfile *hfile;
 
 	err = 0;
-	root = IS_ROOT(file->f_dentry);
+	root = IS_ROOT(file->f_path.dentry);
 	if (root) {
 		get_file(file);
 		to_free[*idx] = file;
@@ -1159,13 +1159,13 @@ out:
 
 long au_ibusy_ioctl(struct file *file, unsigned long arg)
 {
-	return au_ibusy(file->f_dentry->d_sb, (void __user *)arg);
+	return au_ibusy(file->f_path.dentry->d_sb, (void __user *)arg);
 }
 
 #ifdef CONFIG_COMPAT
 long au_ibusy_compat_ioctl(struct file *file, unsigned long arg)
 {
-	return au_ibusy(file->f_dentry->d_sb, compat_ptr(arg));
+	return au_ibusy(file->f_path.dentry->d_sb, compat_ptr(arg));
 }
 #endif
 

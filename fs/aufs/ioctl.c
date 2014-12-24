@@ -143,7 +143,7 @@ long aufs_ioctl_dir(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 
 	case AUFS_CTL_FHSM_FD:
-		dentry = file->f_dentry;
+		dentry = file->f_path.dentry;
 		if (IS_ROOT(dentry))
 			err = au_fhsm_fd(dentry->d_sb, arg);
 		else
@@ -166,7 +166,7 @@ long aufs_ioctl_nondir(struct file *file, unsigned int cmd, unsigned long arg)
 
 	switch (cmd) {
 	case AUFS_CTL_MVDOWN:
-		err = au_mvdown(file->f_dentry, (void __user *)arg);
+		err = au_mvdown(file->f_path.dentry, (void __user *)arg);
 		break;
 
 	case AUFS_CTL_WBR_FD:

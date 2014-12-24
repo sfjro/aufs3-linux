@@ -45,7 +45,7 @@ ssize_t xino_fread(au_readf_t func, struct file *file, void *kbuf, size_t size,
 
 #if 0 /* reserved for future use */
 	if (err > 0)
-		fsnotify_access(file->f_dentry);
+		fsnotify_access(file->f_path.dentry);
 #endif
 
 	return err;
@@ -74,7 +74,7 @@ static ssize_t do_xino_fwrite(au_writef_t func, struct file *file, void *kbuf,
 
 #if 0 /* reserved for future use */
 	if (err > 0)
-		fsnotify_modify(file->f_dentry);
+		fsnotify_modify(file->f_path.dentry);
 #endif
 
 	return err;
@@ -142,7 +142,7 @@ struct file *au_xino_create2(struct file *base_file, struct file *copy_src)
 	struct path path;
 	int err;
 
-	base = base_file->f_dentry;
+	base = base_file->f_path.dentry;
 	parent = base->d_parent; /* dir inode is locked */
 	dir = parent->d_inode;
 	IMustLock(dir);
@@ -225,7 +225,7 @@ static void au_xino_lock_dir(struct super_block *sb, struct file *xino,
 		ldir->hdir = au_hi(sb->s_root->d_inode, bindex);
 		au_hn_imtx_lock_nested(ldir->hdir, AuLsc_I_PARENT);
 	} else {
-		ldir->parent = dget_parent(xino->f_dentry);
+		ldir->parent = dget_parent(xino->f_path.dentry);
 		ldir->mtx = &ldir->parent->d_inode->i_mutex;
 		mutex_lock_nested(ldir->mtx, AuLsc_I_PARENT);
 	}
@@ -747,7 +747,7 @@ struct file *au_xino_create(struct super_block *sb, char *fname, int silent)
 	}
 
 	/* keep file count */
-	h_parent = dget_parent(file->f_dentry);
+	h_parent = dget_parent(file->f_path.dentry);
 	h_dir = h_parent->d_inode;
 	mutex_lock_nested(&h_dir->i_mutex, AuLsc_I_PARENT);
 	/* mnt_want_write() is unnecessary here */
@@ -762,7 +762,7 @@ struct file *au_xino_create(struct super_block *sb, char *fname, int silent)
 	}
 
 	err = -EINVAL;
-	d = file->f_dentry;
+	d = file->f_path.dentry;
 	if (unlikely(sb == d->d_sb)) {
 		if (!silent)
 			pr_err("%s must be outside\n", fname);
@@ -1195,14 +1195,14 @@ int au_xino_set(struct super_block *sb, struct au_opt_xino *xino, int remount)
 
 	err = 0;
 	sbinfo = au_sbi(sb);
-	parent = dget_parent(xino->file->f_dentry);
+	parent = dget_parent(xino->file->f_path.dentry);
 	if (remount) {
 		skip = 0;
-		dname = &xino->file->f_dentry->d_name;
+		dname = &xino->file->f_path.dentry->d_name;
 		cur_xino = sbinfo->si_xib;
 		if (cur_xino) {
-			cur_parent = dget_parent(cur_xino->f_dentry);
-			cur_name = &cur_xino->f_dentry->d_name;
+			cur_parent = dget_parent(cur_xino->f_path.dentry);
+			cur_name = &cur_xino->f_path.dentry->d_name;
 			skip = (cur_parent == parent
 				&& au_qstreq(dname, cur_name));
 			dput(cur_parent);
@@ -1279,7 +1279,7 @@ struct file *au_xino_def(struct super_block *sb)
 		file = au_xino_create(sb, AUFS_XINO_DEFPATH, /*silent*/0);
 		if (IS_ERR(file))
 			goto out;
-		h_sb = file->f_dentry->d_sb;
+		h_sb = file->f_path.dentry->d_sb;
 		if (unlikely(au_test_fs_bad_xino(h_sb))) {
 			pr_err("xino doesn't support %s(%s)\n",
 			       AUFS_XINO_DEFPATH, au_sbtype(h_sb));

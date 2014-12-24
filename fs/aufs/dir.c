@@ -108,7 +108,7 @@ static int reopen_dir(struct file *file)
 	struct file *h_file;
 
 	/* open all lower dirs */
-	dentry = file->f_dentry;
+	dentry = file->f_path.dentry;
 	bstart = au_dbstart(dentry);
 	for (bindex = au_fbstart(file); bindex < bstart; bindex++)
 		au_set_h_fptr(file, bindex, NULL);
@@ -153,7 +153,7 @@ static int do_open_dir(struct file *file, int flags)
 	FiMustWriteLock(file);
 
 	err = 0;
-	dentry = file->f_dentry;
+	dentry = file->f_path.dentry;
 	file->f_version = dentry->d_inode->i_version;
 	bindex = au_dbstart(dentry);
 	au_set_fbstart(file, bindex);
@@ -194,7 +194,7 @@ static int aufs_open_dir(struct inode *inode __maybe_unused,
 	struct au_fidir *fidir;
 
 	err = -ENOMEM;
-	sb = file->f_dentry->d_sb;
+	sb = file->f_path.dentry->d_sb;
 	si_read_lock(sb, AuLock_FLUSH);
 	fidir = au_fidir_alloc(sb);
 	if (fidir) {
@@ -218,7 +218,7 @@ static int aufs_release_dir(struct inode *inode __maybe_unused,
 	fidir = finfo->fi_hdir;
 	if (fidir) {
 		au_sphl_del(&finfo->fi_hlist,
-			    &au_sbi(file->f_dentry->d_sb)->si_files);
+			    &au_sbi(file->f_path.dentry->d_sb)->si_files);
 		vdir_cache = fidir->fd_vdir_cache; /* lock-free */
 		if (vdir_cache)
 			au_vdir_free(vdir_cache);
@@ -305,7 +305,7 @@ static int au_do_fsync_dir(struct file *file, int datasync)
 	if (unlikely(err))
 		goto out;
 
-	sb = file->f_dentry->d_sb;
+	sb = file->f_path.dentry->d_sb;
 	inode = file_inode(file);
 	bend = au_fbend_dir(file);
 	for (bindex = au_fbstart(file); !err && bindex <= bend; bindex++) {
@@ -332,7 +332,7 @@ static int aufs_fsync_dir(struct file *file, loff_t start, loff_t end,
 	struct mutex *mtx;
 
 	err = 0;
-	dentry = file->f_dentry;
+	dentry = file->f_path.dentry;
 	mtx = &dentry->d_inode->i_mutex;
 	mutex_lock(mtx);
 	sb = dentry->d_sb;
@@ -364,7 +364,7 @@ static int aufs_iterate(struct file *file, struct dir_context *ctx)
 
 	AuDbg("%pD, ctx{%pf, %llu}\n", file, ctx->actor, ctx->pos);
 
-	dentry = file->f_dentry;
+	dentry = file->f_path.dentry;
 	inode = dentry->d_inode;
 	IMustLock(inode);
 

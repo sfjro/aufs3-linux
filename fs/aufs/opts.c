@@ -928,7 +928,7 @@ static int au_opts_parse_xino(struct super_block *sb, struct au_opt_xino *xino,
 		goto out;
 
 	err = -EINVAL;
-	if (unlikely(file->f_dentry->d_sb == sb)) {
+	if (unlikely(file->f_path.dentry->d_sb == sb)) {
 		fput(file);
 		pr_err("%s must be outside\n", args[0].from);
 		goto out;
@@ -1556,7 +1556,7 @@ static int au_opt_xino(struct super_block *sb, struct au_opt *opt,
 		au_xino_brid_set(sb, -1);
 
 		/* safe d_parent access */
-		parent = opt->xino.file->f_dentry->d_parent;
+		parent = opt->xino.file->f_path.dentry->d_parent;
 		root = sb->s_root;
 		bend = au_sbend(sb);
 		for (bindex = 0; bindex <= bend; bindex++) {

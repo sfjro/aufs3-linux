@@ -226,7 +226,7 @@ static int dbgaufs_xino_open(struct inode *inode, struct file *file)
 
 	err = -ENOENT;
 	xf = NULL;
-	name = &file->f_dentry->d_name;
+	name = &file->f_path.dentry->d_name;
 	if (unlikely(name->len < sizeof(DbgaufsXi_PREFIX)
 		     || memcmp(name->name, DbgaufsXi_PREFIX,
 			       sizeof(DbgaufsXi_PREFIX) - 1)))

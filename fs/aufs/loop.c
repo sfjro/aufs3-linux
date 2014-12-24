@@ -45,7 +45,7 @@ int au_test_loopback_overlap(struct super_block *sb, struct dentry *h_adding)
 	if (!backing_file)
 		return 0;
 
-	h_adding = backing_file->f_dentry;
+	h_adding = backing_file->f_path.dentry;
 	/*
 	 * h_adding can be local NFS.
 	 * in this case aufs cannot detect the loop.

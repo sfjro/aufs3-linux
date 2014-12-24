@@ -235,7 +235,7 @@ int au_do_open(struct file *file, int (*open)(struct file *file, int flags),
 	if (unlikely(err))
 		goto out;
 
-	dentry = file->f_dentry;
+	dentry = file->f_path.dentry;
 	di_write_lock_child(dentry);
 	err = au_cmoo(dentry);
 	di_downgrade_lock(dentry, AuLock_IR);
@@ -247,7 +247,7 @@ int au_do_open(struct file *file, int (*open)(struct file *file, int flags),
 	if (!err) {
 		finfo->fi_file = file;
 		au_sphl_add(&finfo->fi_hlist,
-			    &au_sbi(file->f_dentry->d_sb)->si_files);
+			    &au_sbi(file->f_path.dentry->d_sb)->si_files);
 	}
 	fi_write_unlock(file);
 	if (unlikely(err)) {
@@ -266,7 +266,7 @@ int au_reopen_nondir(struct file *file)
 	struct dentry *dentry;
 	struct file *h_file, *h_file_tmp;
 
-	dentry = file->f_dentry;
+	dentry = file->f_path.dentry;
 	bstart = au_dbstart(dentry);
 	h_file_tmp = NULL;
 	if (au_fbstart(file) == bstart) {
@@ -326,7 +326,7 @@ static int au_reopen_wh(struct file *file, aufs_bindex_t btgt,
 	struct dentry *h_dentry;
 	struct au_hdentry *hdp;
 
-	dinfo = au_di(file->f_dentry);
+	dinfo = au_di(file->f_path.dentry);
 	AuRwMustWriteLock(&dinfo->di_rwsem);
 
 	bstart = dinfo->di_bstart;
@@ -348,7 +348,7 @@ static int au_ready_to_write_wh(struct file *file, loff_t len,
 	struct inode *inode, *h_inode;
 	struct dentry *h_dentry, *hi_wh;
 	struct au_cp_generic cpg = {
-		.dentry	= file->f_dentry,
+		.dentry	= file->f_path.dentry,
 		.bdst	= bcpup,
 		.bsrc	= -1,
 		.len	= len,
@@ -392,7 +392,7 @@ int au_ready_to_write(struct file *file, loff_t len, struct au_pin *pin)
 	struct super_block *sb;
 	struct file *h_file;
 	struct au_cp_generic cpg = {
-		.dentry	= file->f_dentry,
+		.dentry	= file->f_path.dentry,
 		.bdst	= -1,
 		.bsrc	= -1,
 		.len	= len,
@@ -509,7 +509,7 @@ static int au_file_refresh_by_inode(struct file *file, int *need_reopen)
 	struct inode *inode;
 	struct super_block *sb;
 	struct au_cp_generic cpg = {
-		.dentry	= file->f_dentry,
+		.dentry	= file->f_path.dentry,
 		.bdst	= -1,
 		.bsrc	= -1,
 		.len	= -1,
@@ -580,7 +580,7 @@ static void au_do_refresh_dir(struct file *file)
 
 	FiMustWriteLock(file);
 
-	sb = file->f_dentry->d_sb;
+	sb = file->f_path.dentry->d_sb;
 	finfo = au_fi(file);
 	fidir = finfo->fi_hdir;
 	AuDebugOn(!fidir);
@@ -611,7 +611,7 @@ static void au_do_refresh_dir(struct file *file)
 	}
 
 	p = fidir->fd_hfile;
-	if (!au_test_mmapped(file) && !d_unlinked(file->f_dentry)) {
+	if (!au_test_mmapped(file) && !d_unlinked(file->f_path.dentry)) {
 		bend = au_sbend(sb);
 		for (finfo->fi_btop = 0; finfo->fi_btop <= bend;
 		     finfo->fi_btop++, p++)
@@ -651,7 +651,7 @@ static int refresh_file(struct file *file, int (*reopen)(struct file *file))
 	struct au_finfo *finfo;
 	struct au_hfile *hfile;
 
-	dentry = file->f_dentry;
+	dentry = file->f_path.dentry;
 	finfo = au_fi(file);
 	if (!finfo->fi_hdir) {
 		hfile = &finfo->fi_htop;
@@ -701,7 +701,7 @@ int au_reval_and_lock_fdi(struct file *file, int (*reopen)(struct file *file),
 	struct inode *inode;
 
 	err = 0;
-	dentry = file->f_dentry;
+	dentry = file->f_path.dentry;
 	inode = dentry->d_inode;
 	sigen = au_sigen(dentry->d_sb);
 	fi_write_lock(file);

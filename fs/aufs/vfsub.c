@@ -472,7 +472,7 @@ int vfsub_flush(struct file *file, fl_owner_t id)
 
 	err = 0;
 	if (file->f_op->flush) {
-		if (!au_test_nfs(file->f_dentry->d_sb))
+		if (!au_test_nfs(file->f_path.dentry->d_sb))
 			err = file->f_op->flush(file, id);
 		else {
 			lockdep_off();

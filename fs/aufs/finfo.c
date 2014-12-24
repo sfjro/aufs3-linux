@@ -50,13 +50,13 @@ void au_set_h_fptr(struct file *file, aufs_bindex_t bindex, struct file *val)
 	if (val) {
 		FiMustWriteLock(file);
 		hf->hf_file = val;
-		hf->hf_br = au_sbr(file->f_dentry->d_sb, bindex);
+		hf->hf_br = au_sbr(file->f_path.dentry->d_sb, bindex);
 	}
 }
 
 void au_update_figen(struct file *file)
 {
-	atomic_set(&au_fi(file)->fi_generation, au_digen(file->f_dentry));
+	atomic_set(&au_fi(file)->fi_generation, au_digen(file->f_path.dentry));
 	/* smp_mb(); */ /* atomic_set */
 }
 
@@ -107,7 +107,7 @@ void au_finfo_fin(struct file *file)
 {
 	struct au_finfo *finfo;
 
-	au_nfiles_dec(file->f_dentry->d_sb);
+	au_nfiles_dec(file->f_path.dentry->d_sb);
 
 	finfo = au_fi(file);
 	AuDebugOn(finfo->fi_hdir);
@@ -131,7 +131,7 @@ int au_finfo_init(struct file *file, struct au_fidir *fidir)
 	struct dentry *dentry;
 
 	err = -ENOMEM;
-	dentry = file->f_dentry;
+	dentry = file->f_path.dentry;
 	finfo = au_cache_alloc_finfo();
 	if (unlikely(!finfo))
 		goto out;

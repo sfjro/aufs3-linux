@@ -196,7 +196,7 @@ static int au_show_xino(struct seq_file *seq, struct super_block *sb)
 		hdp = au_di(sb->s_root)->di_hdentry;
 		h_root = hdp[0 + bindex].hd_dentry;
 	}
-	d = f->f_dentry;
+	d = f->f_path.dentry;
 	name = &d->d_name;
 	/* safe ->d_parent because the file is unlinked */
 	if (d->d_parent == h_root

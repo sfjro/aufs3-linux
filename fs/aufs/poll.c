@@ -32,7 +32,7 @@ unsigned int aufs_poll(struct file *file, poll_table *wait)
 
 	/* We should pretend an error happened. */
 	mask = POLLERR /* | POLLIN | POLLOUT */;
-	dentry = file->f_dentry;
+	dentry = file->f_path.dentry;
 	sb = dentry->d_sb;
 	si_read_lock(sb, AuLock_FLUSH | AuLock_NOPLMW);
 	err = au_reval_and_lock_fdi(file, au_reopen_nondir, /*wlock*/0);
