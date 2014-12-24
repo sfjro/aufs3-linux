@@ -210,7 +210,7 @@ static ssize_t aufs_write(struct file *file, const char __user *ubuf,
 	bstart = au_fbstart(file);
 	h_file = au_hf_top(file);
 	get_file(h_file);
-	h_inode = h_file->f_dentry->d_inode;
+	h_inode = file_inode(h_file);
 	blks = h_inode->i_blocks;
 	au_unpin(&pin);
 	di_read_unlock(dentry, AuLock_IR);
@@ -331,7 +331,7 @@ static ssize_t aufs_aio_write(struct kiocb *kio, const struct iovec *iov,
 	bstart = au_fbstart(file);
 	h_file = au_hf_top(file);
 	get_file(h_file);
-	h_inode = h_file->f_dentry->d_inode;
+	h_inode = file_inode(h_file);
 	blks = h_inode->i_blocks;
 	au_unpin(&pin);
 	di_read_unlock(dentry, AuLock_IR);
@@ -427,7 +427,7 @@ aufs_splice_write(struct pipe_inode_info *pipe, struct file *file, loff_t *ppos,
 	bstart = au_fbstart(file);
 	h_file = au_hf_top(file);
 	get_file(h_file);
-	h_inode = h_file->f_dentry->d_inode;
+	h_inode = file_inode(h_file);
 	blks = h_inode->i_blocks;
 	au_unpin(&pin);
 	di_read_unlock(dentry, AuLock_IR);
