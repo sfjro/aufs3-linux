@@ -387,7 +387,7 @@ int au_ready_to_write(struct file *file, loff_t len, struct au_pin *pin)
 {
 	int err;
 	aufs_bindex_t dbstart;
-	struct dentry *parent, *h_dentry;
+	struct dentry *parent;
 	struct inode *inode;
 	struct super_block *sb;
 	struct file *h_file;
@@ -430,13 +430,9 @@ int au_ready_to_write(struct file *file, loff_t len, struct au_pin *pin)
 	if (unlikely(err))
 		goto out_dgrade;
 
-	h_dentry = au_hf_top(file)->f_dentry;
 	dbstart = au_dbstart(cpg.dentry);
-	if (dbstart <= cpg.bdst) {
-		h_dentry = au_h_dptr(cpg.dentry, cpg.bdst);
-		AuDebugOn(!h_dentry);
+	if (dbstart <= cpg.bdst)
 		cpg.bsrc = cpg.bdst;
-	}
 
 	if (dbstart <= cpg.bdst		/* just reopen */
 	    || !d_unhashed(cpg.dentry)	/* copyup and reopen */
