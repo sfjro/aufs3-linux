@@ -250,13 +250,13 @@ out:
 
 long au_brinfo_ioctl(struct file *file, unsigned long arg)
 {
-	return au_brinfo(file->f_dentry->d_sb, (void __user *)arg);
+	return au_brinfo(file->f_path.dentry->d_sb, (void __user *)arg);
 }
 
 #ifdef CONFIG_COMPAT
 long au_brinfo_compat_ioctl(struct file *file, unsigned long arg)
 {
-	return au_brinfo(file->f_dentry->d_sb, compat_ptr(arg));
+	return au_brinfo(file->f_path.dentry->d_sb, compat_ptr(arg));
 }
 #endif
 

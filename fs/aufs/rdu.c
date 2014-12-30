@@ -112,7 +112,7 @@ static int au_rdu(struct file *file, struct aufs_rdu *rdu)
 	aufs_bindex_t bend;
 	struct au_rdu_arg arg = {
 		.ctx = {
-			.actor = au_diractor(au_rdu_fill)
+			.actor = au_rdu_fill
 		}
 	};
 	struct dentry *dentry;
@@ -143,7 +143,7 @@ static int au_rdu(struct file *file, struct aufs_rdu *rdu)
 	if (unlikely(err))
 		goto out;
 
-	dentry = file->f_dentry;
+	dentry = file->f_path.dentry;
 	inode = dentry->d_inode;
 #if 1
 	mutex_lock(&inode->i_mutex);
@@ -227,7 +227,7 @@ static int au_rdu_ino(struct file *file, struct aufs_rdu *rdu)
 	err = 0;
 	nent = rdu->nent;
 	u = &rdu->ent;
-	sb = file->f_dentry->d_sb;
+	sb = file->f_path.dentry->d_sb;
 	si_read_lock(sb, AuLock_FLUSH);
 	while (nent-- > 0) {
 		/* unnecessary to support mmap_sem since this is a dir */

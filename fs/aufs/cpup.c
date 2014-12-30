@@ -283,7 +283,7 @@ static int au_do_copy_file(struct file *dst, struct file *src, loff_t len,
 		AuLabel(last hole);
 
 		err = 1;
-		if (au_test_nfs(dst->f_dentry->d_sb)) {
+		if (au_test_nfs(dst->f_path.dentry->d_sb)) {
 			/* nfs requires this step to make last hole */
 			/* is this only nfs? */
 			do {
@@ -319,7 +319,7 @@ int au_copy_file(struct file *dst, struct file *src, loff_t len)
 	char *buf;
 
 	err = -ENOMEM;
-	blksize = dst->f_dentry->d_sb->s_blocksize;
+	blksize = dst->f_path.dentry->d_sb->s_blocksize;
 	if (!blksize || PAGE_SIZE < blksize)
 		blksize = PAGE_SIZE;
 	AuDbg("blksize %lu\n", blksize);
@@ -1028,7 +1028,7 @@ static int au_do_cpup_wh(struct au_cp_generic *cpg, struct dentry *wh_dentry,
 	h_d_start = NULL;
 	if (file) {
 		h_d_start = hdp[0 + cpg->bsrc].hd_dentry;
-		hdp[0 + cpg->bsrc].hd_dentry = au_hf_top(file)->f_dentry;
+		hdp[0 + cpg->bsrc].hd_dentry = au_hf_top(file)->f_path.dentry;
 	}
 	flags_orig = cpg->flags;
 	cpg->flags = !AuCpup_DTIME;
