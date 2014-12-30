@@ -230,7 +230,7 @@ static struct dentry *decode_by_ino(struct super_block *sb, ino_t ino,
 		dentry = d_find_alias(inode);
 	else {
 		spin_lock(&inode->i_lock);
-		hlist_for_each_entry(d, &inode->i_dentry, d_alias) {
+		hlist_for_each_entry(d, &inode->i_dentry, d_u.d_alias) {
 			spin_lock(&d->d_lock);
 			if (!au_test_anon(d)
 			    && d->d_parent->d_inode->i_ino == dir_ino) {
@@ -359,7 +359,7 @@ static struct dentry *au_lkup_by_ino(struct path *path, ino_t ino,
 	struct inode *dir;
 	struct find_name_by_ino arg = {
 		.ctx = {
-			.actor = au_diractor(find_name_by_ino)
+			.actor = find_name_by_ino
 		}
 	};
 	int err;

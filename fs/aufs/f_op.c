@@ -24,7 +24,7 @@ int au_do_open_nondir(struct file *file, int flags)
 	FiMustWriteLock(file);
 
 	err = 0;
-	dentry = file->f_dentry;
+	dentry = file->f_path.dentry;
 	finfo = au_fi(file);
 	memset(&finfo->fi_htop, 0, sizeof(finfo->fi_htop));
 	atomic_set(&finfo->fi_mmapped, 0);
@@ -59,7 +59,7 @@ static int aufs_open_nondir(struct inode *inode __maybe_unused,
 	AuDbg("%pD, f_flags 0x%x, f_mode 0x%x\n",
 	      file, vfsub_file_flags(file), file->f_mode);
 
-	sb = file->f_dentry->d_sb;
+	sb = file->f_path.dentry->d_sb;
 	si_read_lock(sb, AuLock_FLUSH);
 	err = au_do_open(file, au_do_open_nondir, /*fidir*/NULL);
 	si_read_unlock(sb);
@@ -72,7 +72,8 @@ int aufs_release_nondir(struct inode *inode __maybe_unused, struct file *file)
 	aufs_bindex_t bindex;
 
 	finfo = au_fi(file);
-	au_sphl_del(&finfo->fi_hlist, &au_sbi(file->f_dentry->d_sb)->si_files);
+	au_sphl_del(&finfo->fi_hlist,
+		    &au_sbi(file->f_path.dentry->d_sb)->si_files);
 	bindex = finfo->fi_btop;
 	if (bindex >= 0)
 		au_set_h_fptr(file, bindex, NULL);
@@ -117,7 +118,7 @@ static ssize_t aufs_read(struct file *file, char __user *buf, size_t count,
 	struct file *h_file;
 	struct super_block *sb;
 
-	dentry = file->f_dentry;
+	dentry = file->f_path.dentry;
 	sb = dentry->d_sb;
 	si_read_lock(sb, AuLock_FLUSH | AuLock_NOPLMW);
 	err = au_reval_and_lock_fdi(file, au_reopen_nondir, /*wlock*/0);
@@ -177,7 +178,7 @@ static ssize_t aufs_write(struct file *file, const char __user *ubuf,
 	struct file *h_file;
 	char __user *buf = (char __user *)ubuf;
 
-	dentry = file->f_dentry;
+	dentry = file->f_path.dentry;
 	sb = dentry->d_sb;
 	inode = dentry->d_inode;
 	au_mtx_and_read_lock(inode);
@@ -197,7 +198,7 @@ static ssize_t aufs_write(struct file *file, const char __user *ubuf,
 	bstart = au_fbstart(file);
 	h_file = au_hf_top(file);
 	get_file(h_file);
-	h_inode = h_file->f_dentry->d_inode;
+	h_inode = file_inode(h_file);
 	blks = h_inode->i_blocks;
 	au_unpin(&pin);
 	di_read_unlock(dentry, AuLock_IR);
@@ -270,7 +271,7 @@ static ssize_t aufs_read_iter(struct kiocb *kio, struct iov_iter *iov_iter)
 	struct super_block *sb;
 
 	file = kio->ki_filp;
-	dentry = file->f_dentry;
+	dentry = file->f_path.dentry;
 	sb = dentry->d_sb;
 	si_read_lock(sb, AuLock_FLUSH | AuLock_NOPLMW);
 	err = au_reval_and_lock_fdi(file, au_reopen_nondir, /*wlock*/0);
@@ -306,7 +307,7 @@ static ssize_t aufs_write_iter(struct kiocb *kio, struct iov_iter *iov_iter)
 	struct super_block *sb;
 
 	file = kio->ki_filp;
-	dentry = file->f_dentry;
+	dentry = file->f_path.dentry;
 	sb = dentry->d_sb;
 	inode = dentry->d_inode;
 	au_mtx_and_read_lock(inode);
@@ -326,7 +327,7 @@ static ssize_t aufs_write_iter(struct kiocb *kio, struct iov_iter *iov_iter)
 	bstart = au_fbstart(file);
 	h_file = au_hf_top(file);
 	get_file(h_file);
-	h_inode = h_file->f_dentry->d_inode;
+	h_inode = file_inode(h_file);
 	blks = h_inode->i_blocks;
 	au_unpin(&pin);
 	di_read_unlock(dentry, AuLock_IR);
@@ -357,7 +358,7 @@ static ssize_t aufs_splice_read(struct file *file, loff_t *ppos,
 	struct dentry *dentry;
 	struct super_block *sb;
 
-	dentry = file->f_dentry;
+	dentry = file->f_path.dentry;
 	sb = dentry->d_sb;
 	si_read_lock(sb, AuLock_FLUSH | AuLock_NOPLMW);
 	err = au_reval_and_lock_fdi(file, au_reopen_nondir, /*wlock*/0);
@@ -368,7 +369,7 @@ static ssize_t aufs_splice_read(struct file *file, loff_t *ppos,
 	h_file = au_hf_top(file);
 	get_file(h_file);
 	if (au_test_loopback_kthread()) {
-		au_warn_loopback(h_file->f_dentry->d_sb);
+		au_warn_loopback(h_file->f_path.dentry->d_sb);
 		if (file->f_mapping != h_file->f_mapping) {
 			file->f_mapping = h_file->f_mapping;
 			smp_mb(); /* unnecessary? */
@@ -402,7 +403,7 @@ aufs_splice_write(struct pipe_inode_info *pipe, struct file *file, loff_t *ppos,
 	struct super_block *sb;
 	struct file *h_file;
 
-	dentry = file->f_dentry;
+	dentry = file->f_path.dentry;
 	sb = dentry->d_sb;
 	inode = dentry->d_inode;
 	au_mtx_and_read_lock(inode);
@@ -422,7 +423,7 @@ aufs_splice_write(struct pipe_inode_info *pipe, struct file *file, loff_t *ppos,
 	bstart = au_fbstart(file);
 	h_file = au_hf_top(file);
 	get_file(h_file);
-	h_inode = h_file->f_dentry->d_inode;
+	h_inode = file_inode(h_file);
 	blks = h_inode->i_blocks;
 	au_unpin(&pin);
 	di_read_unlock(dentry, AuLock_IR);
@@ -454,7 +455,7 @@ static long aufs_fallocate(struct file *file, int mode, loff_t offset,
 	struct inode *inode;
 	struct file *h_file;
 
-	dentry = file->f_dentry;
+	dentry = file->f_path.dentry;
 	sb = dentry->d_sb;
 	inode = dentry->d_inode;
 	au_mtx_and_read_lock(inode);
@@ -478,7 +479,7 @@ static long aufs_fallocate(struct file *file, int mode, loff_t offset,
 	fi_write_unlock(file);
 
 	lockdep_off();
-	err = do_fallocate(h_file, mode, offset, len);
+	err = vfs_fallocate(h_file, mode, offset, len);
 	lockdep_on();
 	ii_write_lock_child(inode);
 	au_cpup_attr_timesizes(inode);
@@ -563,7 +564,7 @@ static int aufs_mmap(struct file *file, struct vm_area_struct *vma)
 
 	AuDbgVmRegion(file, vma);
 
-	dentry = file->f_dentry;
+	dentry = file->f_path.dentry;
 	sb = dentry->d_sb;
 	lockdep_off();
 	si_read_lock(sb, AuLock_NOPLMW);
@@ -633,7 +634,7 @@ static int aufs_fsync_nondir(struct file *file, loff_t start, loff_t end,
 	struct file *h_file;
 	struct super_block *sb;
 
-	dentry = file->f_dentry;
+	dentry = file->f_path.dentry;
 	inode = dentry->d_inode;
 	sb = dentry->d_sb;
 	mutex_lock(&inode->i_mutex);
@@ -680,7 +681,7 @@ static int aufs_aio_fsync_nondir(struct kiocb *kio, int datasync)
 	struct file *file, *h_file;
 
 	file = kio->ki_filp;
-	dentry = file->f_dentry;
+	dentry = file->f_path.dentry;
 	inode = dentry->d_inode;
 	au_mtx_and_read_lock(inode);
 
@@ -734,7 +735,7 @@ static int aufs_fasync(int fd, struct file *file, int flag)
 	struct dentry *dentry;
 	struct super_block *sb;
 
-	dentry = file->f_dentry;
+	dentry = file->f_path.dentry;
 	sb = dentry->d_sb;
 	si_read_lock(sb, AuLock_FLUSH | AuLock_NOPLMW);
 	err = au_reval_and_lock_fdi(file, au_reopen_nondir, /*wlock*/0);

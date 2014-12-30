@@ -326,7 +326,7 @@ static long madvise_remove(struct vm_area_struct *vma,
 	 */
 	vma_get_file(vma);
 	up_read(&current->mm->mmap_sem);
-	error = do_fallocate(f,
+	error = vfs_fallocate(f,
 				FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
 				offset, end - start);
 	vma_fput(vma);
