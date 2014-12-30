@@ -352,7 +352,7 @@ static struct au_vdir *alloc_vdir(struct file *file)
 	struct super_block *sb;
 	int err;
 
-	sb = file->f_dentry->d_sb;
+	sb = file->f_path.dentry->d_sb;
 	SiMustAnyLock(sb);
 
 	err = -ENOMEM;
@@ -446,7 +446,7 @@ static int fillvdir(struct dir_context *ctx, const char *__name, int nlen,
 	const unsigned char shwh = !!au_ftest_fillvdir(arg->flags, SHWH);
 
 	arg->err = 0;
-	sb = arg->file->f_dentry->d_sb;
+	sb = arg->file->f_path.dentry->d_sb;
 	au_fset_fillvdir(arg->flags, CALLED);
 	/* smp_mb(); */
 	if (nlen <= AUFS_WH_PFX_LEN
@@ -455,7 +455,7 @@ static int fillvdir(struct dir_context *ctx, const char *__name, int nlen,
 		    || au_nhash_test_known_wh(&arg->whlist, name, nlen))
 			goto out; /* already exists or whiteouted */
 
-		sb = arg->file->f_dentry->d_sb;
+		sb = arg->file->f_path.dentry->d_sb;
 		arg->err = au_ino(sb, arg->bindex, h_ino, d_type, &ino);
 		if (!arg->err) {
 			if (unlikely(nlen > AUFS_MAX_NAMELEN))
@@ -545,7 +545,7 @@ static int au_do_read_vdir(struct fillvdir_arg *arg)
 	struct super_block *sb;
 
 	file = arg->file;
-	sb = file->f_dentry->d_sb;
+	sb = file->f_path.dentry->d_sb;
 	SiMustAnyLock(sb);
 
 	rdhash = au_sbi(sb)->si_rdhash;
@@ -616,7 +616,7 @@ static int read_vdir(struct file *file, int may_read)
 	unsigned char do_read;
 	struct fillvdir_arg arg = {
 		.ctx = {
-			.actor = au_diractor(fillvdir)
+			.actor = fillvdir
 		}
 	};
 	struct inode *inode;
