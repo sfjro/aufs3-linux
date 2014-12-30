@@ -105,79 +105,60 @@ out:
 	return err;
 }
 
-/* try d_walk() in linux/fs/dcache.c */
+/* todo: BAD approach */
+/* copied from linux/fs/dcache.c */
+enum d_walk_ret {
+	D_WALK_CONTINUE,
+	D_WALK_QUIT,
+	D_WALK_NORETRY,
+	D_WALK_SKIP,
+};
+
+extern void d_walk(struct dentry *parent, void *data,
+		   enum d_walk_ret (*enter)(void *, struct dentry *),
+		   void (*finish)(void *));
+
+struct ac_dpages_arg {
+	int err;
+	struct au_dcsub_pages *dpages;
+	struct super_block *sb;
+	au_dpages_test test;
+	void *arg;
+};
+
+static enum d_walk_ret au_call_dpages_append(void *_arg, struct dentry *dentry)
+{
+	enum d_walk_ret ret;
+	struct ac_dpages_arg *arg = _arg;
+
+	ret = D_WALK_CONTINUE;
+	if (dentry->d_sb == arg->sb
+	    && !IS_ROOT(dentry)
+	    && d_count(dentry)
+	    && au_di(dentry)
+	    && (!arg->test || arg->test(dentry, arg->arg))) {
+		arg->err = au_dpages_append(arg->dpages, dentry, GFP_ATOMIC);
+		if (unlikely(arg->err))
+			ret = D_WALK_QUIT;
+	}
+
+	return ret;
+}
+
 int au_dcsub_pages(struct au_dcsub_pages *dpages, struct dentry *root,
 		   au_dpages_test test, void *arg)
 {
-	int err;
-	struct dentry *this_parent;
-	struct list_head *next;
-	struct super_block *sb = root->d_sb;
+	struct ac_dpages_arg args = {
+		.err	= 0,
+		.dpages	= dpages,
+		.sb	= root->d_sb,
+		.test	= test,
+		.arg	= arg
+	};
 
-	err = 0;
-	write_seqlock(&rename_lock);
-	this_parent = root;
-	spin_lock(&this_parent->d_lock);
-repeat:
-	next = this_parent->d_subdirs.next;
-resume:
-	if (this_parent->d_sb == sb
-	    && !IS_ROOT(this_parent)
-	    && au_di(this_parent)
-	    && d_count(this_parent)
-	    && (!test || test(this_parent, arg))) {
-		err = au_dpages_append(dpages, this_parent, GFP_ATOMIC);
-		if (unlikely(err))
-			goto out;
-	}
+	d_walk(root, &args, au_call_dpages_append, NULL);
 
-	while (next != &this_parent->d_subdirs) {
-		struct list_head *tmp = next;
-		struct dentry *dentry = list_entry(tmp, struct dentry,
-						   d_u.d_child);
-
-		next = tmp->next;
-		spin_lock_nested(&dentry->d_lock, DENTRY_D_LOCK_NESTED);
-		if (d_count(dentry)) {
-			if (!list_empty(&dentry->d_subdirs)) {
-				spin_unlock(&this_parent->d_lock);
-				spin_release(&dentry->d_lock.dep_map, 1,
-					     _RET_IP_);
-				this_parent = dentry;
-				spin_acquire(&this_parent->d_lock.dep_map, 0, 1,
-					     _RET_IP_);
-				goto repeat;
-			}
-			if (dentry->d_sb == sb
-			    && au_di(dentry)
-			    && (!test || test(dentry, arg)))
-				err = au_dpages_append(dpages, dentry,
-						       GFP_ATOMIC);
-		}
-		spin_unlock(&dentry->d_lock);
-		if (unlikely(err))
-			goto out;
-	}
-
-	if (this_parent != root) {
-		struct dentry *tmp;
-		struct dentry *child;
-
-		tmp = this_parent->d_parent;
-		rcu_read_lock();
-		spin_unlock(&this_parent->d_lock);
-		child = this_parent;
-		this_parent = tmp;
-		spin_lock(&this_parent->d_lock);
-		rcu_read_unlock();
-		next = child->d_u.d_child.next;
-		goto resume;
-	}
-
-out:
-	spin_unlock(&this_parent->d_lock);
-	write_sequnlock(&rename_lock);
-	return err;
+	return args.err;
 }
 
 int au_dcsub_pages_rev(struct au_dcsub_pages *dpages, struct dentry *dentry,
