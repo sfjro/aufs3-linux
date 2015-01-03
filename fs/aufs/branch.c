@@ -669,7 +669,7 @@ static int test_dentry_busy(struct dentry *root, aufs_bindex_t bindex,
 		ndentry = dpage->ndentry;
 		for (j = 0; !err && j < ndentry; j++) {
 			d = dpage->dentries[j];
-			AuDebugOn(!d_count(d));
+			AuDebugOn(au_dcount(d) <= 0);
 			if (!au_digen_test(d, sigen)) {
 				di_read_lock_child(d, AuLock_IR);
 				if (unlikely(au_dbrange_test(d))) {
