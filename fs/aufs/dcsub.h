@@ -116,5 +116,10 @@ static inline int au_qstreq(struct qstr *a, struct qstr *b)
 		&& !memcmp(a->name, b->name, a->len);
 }
 
+static inline int au_dcount(struct dentry *d)
+{
+	return (int)d_count(d);
+}
+
 #endif /* __KERNEL__ */
 #endif /* __AUFS_DCSUB_H__ */

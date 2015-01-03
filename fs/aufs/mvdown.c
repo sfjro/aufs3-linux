@@ -389,7 +389,7 @@ static int au_mvd_args_busy(const unsigned char dmsg, struct au_mvd_args *a)
 	err = 0;
 	plinked = !!au_opt_test(au_mntflags(a->sb), PLINK);
 	if (au_dbstart(a->dentry) == a->mvd_bsrc
-	    && d_count(a->dentry) == 1
+	    && au_dcount(a->dentry) == 1
 	    && atomic_read(&a->inode->i_count) == 1
 	    /* && a->mvd_h_src_inode->i_nlink == 1 */
 	    && (!plinked || !au_plink_test(a->inode))
@@ -398,8 +398,8 @@ static int au_mvd_args_busy(const unsigned char dmsg, struct au_mvd_args *a)
 
 	err = -EBUSY;
 	AU_MVD_PR(dmsg,
-		  "b%d, d{b%d, c%u?}, i{c%d?, l%u}, hi{l%u}, p{%d, %d}\n",
-		  a->mvd_bsrc, au_dbstart(a->dentry), d_count(a->dentry),
+		  "b%d, d{b%d, c%d?}, i{c%d?, l%u}, hi{l%u}, p{%d, %d}\n",
+		  a->mvd_bsrc, au_dbstart(a->dentry), au_dcount(a->dentry),
 		  atomic_read(&a->inode->i_count), a->inode->i_nlink,
 		  a->mvd_h_src_inode->i_nlink,
 		  plinked, plinked ? au_plink_test(a->inode) : 0);
