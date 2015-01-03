@@ -97,7 +97,7 @@ static int au_dpages_append(struct au_dcsub_pages *dpages,
 		dpages->ndpage++;
 	}
 
-	AuDebugOn(!d_count(dentry));
+	AuDebugOn(au_dcount(dentry) <= 0);
 	dpage->dentries[dpage->ndentry++] = dget_dlock(dentry);
 	return 0; /* success */
 
@@ -134,7 +134,7 @@ static enum d_walk_ret au_call_dpages_append(void *_arg, struct dentry *dentry)
 	ret = D_WALK_CONTINUE;
 	if (dentry->d_sb == arg->sb
 	    && !IS_ROOT(dentry)
-	    && d_count(dentry)
+	    && au_dcount(dentry) > 0
 	    && au_di(dentry)
 	    && (!arg->test || arg->test(dentry, arg->arg))) {
 		arg->err = au_dpages_append(arg->dpages, dentry, GFP_ATOMIC);
@@ -170,7 +170,7 @@ int au_dcsub_pages_rev(struct au_dcsub_pages *dpages, struct dentry *dentry,
 	write_seqlock(&rename_lock);
 	spin_lock(&dentry->d_lock);
 	if (do_include
-	    && d_count(dentry)
+	    && au_dcount(dentry) > 0
 	    && (!test || test(dentry, arg)))
 		err = au_dpages_append(dpages, dentry, GFP_ATOMIC);
 	spin_unlock(&dentry->d_lock);
@@ -184,7 +184,7 @@ int au_dcsub_pages_rev(struct au_dcsub_pages *dpages, struct dentry *dentry,
 	while (!IS_ROOT(dentry)) {
 		dentry = dentry->d_parent; /* rename_lock is locked */
 		spin_lock(&dentry->d_lock);
-		if (d_count(dentry)
+		if (au_dcount(dentry) > 0
 		    && (!test || test(dentry, arg)))
 			err = au_dpages_append(dpages, dentry, GFP_ATOMIC);
 		spin_unlock(&dentry->d_lock);
