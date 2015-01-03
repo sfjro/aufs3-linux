@@ -388,7 +388,7 @@ static struct dentry *lookup_wlock_by_name(char *name, unsigned int nlen,
 			au_digen_dec(d);
 		else
 			goto cont_unlock;
-		if (d_count(d)) {
+		if (au_dcount(d) > 0) {
 			dentry = dget_dlock(d);
 			spin_unlock(&d->d_lock);
 			break;
