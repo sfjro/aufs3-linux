@@ -40,8 +40,8 @@ static inline const char *au_sbtype(struct super_block *sb)
 
 static inline int au_test_iso9660(struct super_block *sb __maybe_unused)
 {
-#if defined(CONFIG_ROMFS_FS) || defined(CONFIG_ROMFS_FS_MODULE)
-	return sb->s_magic == ROMFS_MAGIC;
+#if defined(CONFIG_ISO9660_FS) || defined(CONFIG_ISO9660_FS_MODULE)
+	return sb->s_magic == ISOFS_SUPER_MAGIC;
 #else
 	return 0;
 #endif
@@ -49,8 +49,8 @@ static inline int au_test_iso9660(struct super_block *sb __maybe_unused)
 
 static inline int au_test_romfs(struct super_block *sb __maybe_unused)
 {
-#if defined(CONFIG_ISO9660_FS) || defined(CONFIG_ISO9660_FS_MODULE)
-	return sb->s_magic == ISOFS_SUPER_MAGIC;
+#if defined(CONFIG_ROMFS_FS) || defined(CONFIG_ROMFS_FS_MODULE)
+	return sb->s_magic == ROMFS_MAGIC;
 #else
 	return 0;
 #endif
