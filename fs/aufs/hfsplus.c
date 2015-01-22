@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2014 Junjiro R. Okajima
+ * Copyright (C) 2010-2015 Junjiro R. Okajima
  */
 
 /*
