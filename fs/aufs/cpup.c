@@ -1259,7 +1259,7 @@ out:
 
 static int au_cpup_dir(struct dentry *dentry, aufs_bindex_t bdst,
 		       struct au_pin *pin,
-		       struct dentry *h_parent __maybe_unused ,
+		       struct dentry *h_parent __maybe_unused,
 		       void *arg __maybe_unused)
 {
 	struct au_cp_generic cpg = {
