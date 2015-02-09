@@ -772,7 +772,7 @@ out:
 /* no one supports this operation, currently */
 #if 0
 static ssize_t aufs_sendpage(struct file *file, struct page *page, int offset,
-			     size_t len, loff_t *pos , int more)
+			     size_t len, loff_t *pos, int more)
 {
 }
 #endif
