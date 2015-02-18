@@ -933,6 +933,7 @@ int au_whtmp_rmdir(struct inode *dir, aufs_bindex_t bindex,
 		   struct dentry *wh_dentry, struct au_nhash *whlist)
 {
 	int err;
+	unsigned int h_nlink;
 	struct path h_tmp;
 	struct inode *wh_inode, *h_dir;
 	struct au_branch *br;
@@ -969,14 +970,18 @@ int au_whtmp_rmdir(struct inode *dir, aufs_bindex_t bindex,
 	if (!err) {
 		h_tmp.dentry = wh_dentry;
 		h_tmp.mnt = au_br_mnt(br);
+		h_nlink = h_dir->i_nlink;
 		err = vfsub_rmdir(h_dir, &h_tmp);
+		/* some fs doesn't change the parent nlink in some cases */
+		h_nlink -= h_dir->i_nlink;
 	}
 
 	if (!err) {
 		if (au_ibstart(dir) == bindex) {
 			/* todo: dir->i_mutex is necessary */
 			au_cpup_attr_timesizes(dir);
-			vfsub_drop_nlink(dir);
+			if (h_nlink)
+				vfsub_drop_nlink(dir);
 		}
 		return 0; /* success */
 	}
