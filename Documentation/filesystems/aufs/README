@@ -110,9 +110,13 @@ The aufs3-linux tree includes the whole linux mainline GIT tree,
 git://git.kernel.org/.../torvalds/linux.git.
 And you cannot select CONFIG_AUFS_FS=m for this version, eg. you cannot
 build aufs3 as an external kernel module.
+Several extra patches are not included in this tree. Only
+aufs3-standalong tree contains them. They are describe in the later
+section "Configuration and Compilation."
 
 On the other hand, the aufs3-standalone tree has only aufs source files
 and necessary patches, and you can select CONFIG_AUFS_FS=m.
+But you need to apply all aufs patches manually.
 
 You will find GIT branches whose name is in form of "aufs3.x" where "x"
 represents the linux kernel version, "linux-3.x". For instance,
@@ -121,11 +125,25 @@ represents the linux kernel version, "linux-3.x". For instance,
 
 o aufs3-linux tree
 $ git clone --reference /your/linux/git/tree \
-	git://git.code.sf.net/p/aufs/aufs3-linux aufs-aufs3-linux \
-	aufs3-linux.git
+	git://git.code.sf.net/p/aufs/aufs3-linux aufs3-linux.git
 - if you don't have linux GIT tree, then remove "--reference ..."
 $ cd aufs3-linux.git
 $ git checkout origin/aufs3.0
+
+Or You may want to directly git-pull aufs into your linux GIT tree, and
+leave the patch-work to GIT.
+$ cd /your/linux/git/tree
+$ git remote add aufs3 https://github.com/sfjro/aufs3-linux.git
+- aufs3-linux.git tree also exists on github.
+$ git fetch aufs3
+$ git checkout -b my3.14 v3.14
+$ (add your change...)
+$ git pull aufs3 aufs3.14
+- now you have v3.14 + your_changes + aufs3.14 in you my3.14 branch.
+- you may need to solve some conflicts between your_changes and
+  aufs3.14. in this case, git-rerere is recommended so that you can
+  solve the similar confilicts automatically when you upgrade to 3.15 or
+  later in the future.
 
 o aufs3-standalone tree
 $ git clone git://git.code.sf.net/p/aufs/aufs3-standalone \
