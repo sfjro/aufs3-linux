@@ -855,7 +855,7 @@ static int smack_inode_link(struct dentry *old_dentry, struct inode *dir,
 	rc = smk_curacc(isp, MAY_WRITE, &ad);
 	rc = smk_bu_inode(old_dentry->d_inode, MAY_WRITE, rc);
 
-	if (rc == 0 && new_dentry->d_inode != NULL) {
+	if (rc == 0 && d_is_positive(new_dentry)) {
 		isp = smk_of_inode(new_dentry->d_inode);
 		smk_ad_setfield_u_fs_path_dentry(&ad, new_dentry);
 		rc = smk_curacc(isp, MAY_WRITE, &ad);
@@ -961,7 +961,7 @@ static int smack_inode_rename(struct inode *old_inode,
 	rc = smk_curacc(isp, MAY_READWRITE, &ad);
 	rc = smk_bu_inode(old_dentry->d_inode, MAY_READWRITE, rc);
 
-	if (rc == 0 && new_dentry->d_inode != NULL) {
+	if (rc == 0 && d_is_positive(new_dentry)) {
 		isp = smk_of_inode(new_dentry->d_inode);
 		smk_ad_setfield_u_fs_path_dentry(&ad, new_dentry);
 		rc = smk_curacc(isp, MAY_READWRITE, &ad);
@@ -3818,6 +3818,18 @@ static int smack_inet_conn_request(struct sock *sk, struct sk_buff *skb,
 	}
 #endif /* CONFIG_IPV6 */
 
+#ifdef CONFIG_SECURITY_SMACK_NETFILTER
+	/*
+	 * If there is a secmark use it rather than the CIPSO label.
+	 * If there is no secmark fall back to CIPSO.
+	 * The secmark is assumed to reflect policy better.
+	 */
+	if (skb && skb->secmark != 0) {
+		skp = smack_from_secid(skb->secmark);
+		goto access_check;
+	}
+#endif /* CONFIG_SECURITY_SMACK_NETFILTER */
+
 	netlbl_secattr_init(&secattr);
 	rc = netlbl_skbuff_getattr(skb, family, &secattr);
 	if (rc == 0)
@@ -3825,6 +3837,10 @@ static int smack_inet_conn_request(struct sock *sk, struct sk_buff *skb,
 	else
 		skp = &smack_known_huh;
 	netlbl_secattr_destroy(&secattr);
+
+#ifdef CONFIG_SECURITY_SMACK_NETFILTER
+access_check:
+#endif
 
 #ifdef CONFIG_AUDIT
 	smk_ad_init_net(&ad, __func__, LSM_AUDIT_DATA_NET, &net);
