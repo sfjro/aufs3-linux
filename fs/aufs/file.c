@@ -754,14 +754,6 @@ static ssize_t aufs_direct_IO(int rw, struct kiocb *iocb,
 			      struct iov_iter *iter, loff_t offset)
 { BUG(); return 0; }
 
-/*
- * it will never be called, but madvise and fadvise behaves differently
- * when get_xip_mem is defined
- */
-static int aufs_get_xip_mem(struct address_space *mapping, pgoff_t pgoff,
-			    int create, void **kmem, unsigned long *pfn)
-{ BUG(); return 0; }
-
 /* they will never be called. */
 #ifdef CONFIG_AUFS_DEBUG
 static int aufs_write_begin(struct file *file, struct address_space *mapping,
@@ -807,7 +799,6 @@ static void aufs_swap_deactivate(struct file *file)
 const struct address_space_operations aufs_aop = {
 	.readpage		= aufs_readpage,
 	.direct_IO		= aufs_direct_IO,
-	.get_xip_mem		= aufs_get_xip_mem,
 #ifdef CONFIG_AUFS_DEBUG
 	.writepage		= aufs_writepage,
 	/* no writepages, because of writepage */

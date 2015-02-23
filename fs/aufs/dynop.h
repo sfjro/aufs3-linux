@@ -54,8 +54,6 @@ struct au_dykey {
 struct au_dyaop {
 	struct au_dykey			da_key;
 	struct address_space_operations	da_op; /* not const */
-	int (*da_get_xip_mem)(struct address_space *, pgoff_t, int,
-			      void **, unsigned long *);
 };
 
 /* ---------------------------------------------------------------------- */

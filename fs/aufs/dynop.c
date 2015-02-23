@@ -186,9 +186,8 @@ static void dy_aop(struct au_dykey *key, const void *h_op,
 	DySetAop(invalidatepage);
 	DySetAop(releasepage);
 	DySetAop(freepage);
-	/* these two will be changed according to an aufs mount option */
+	/* this one will be changed according to an aufs mount option */
 	DySetAop(direct_IO);
-	DySetAop(get_xip_mem);
 	DySetAop(migratepage);
 	DySetAop(launder_page);
 	DySetAop(is_partially_uptodate);
@@ -198,7 +197,6 @@ static void dy_aop(struct au_dykey *key, const void *h_op,
 	DySetAop(swap_deactivate);
 
 	DyDbgSize(cnt, *h_aop);
-	dyaop->da_get_xip_mem = h_aop->get_xip_mem;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -262,21 +260,13 @@ out:
  * of the succeeding I/O. The dio mount option enables O_DIRECT and makes
  * open(O_DIRECT) always succeed, but the succeeding I/O may return an error.
  * See the aufs manual in detail.
- *
- * To keep this behaviour, aufs has to set NULL to ->get_xip_mem too, and the
- * performance of fadvise() and madvise() may be affected.
  */
 static void dy_adx(struct au_dyaop *dyaop, int do_dx)
 {
-	if (!do_dx) {
+	if (!do_dx)
 		dyaop->da_op.direct_IO = NULL;
-		dyaop->da_op.get_xip_mem = NULL;
-	} else {
+	else
 		dyaop->da_op.direct_IO = aufs_aop.direct_IO;
-		dyaop->da_op.get_xip_mem = aufs_aop.get_xip_mem;
-		if (!dyaop->da_get_xip_mem)
-			dyaop->da_op.get_xip_mem = NULL;
-	}
 }
 
 static struct au_dyaop *dy_aget(struct au_branch *br,
