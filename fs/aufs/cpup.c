@@ -1087,7 +1087,7 @@ static int au_cpup_wh(struct au_cp_generic *cpg, struct file *file)
 
 	dget(wh_dentry);
 	h_path.dentry = wh_dentry;
-	if (!S_ISDIR(wh_dentry->d_inode->i_mode)) {
+	if (!d_is_directory(wh_dentry)) {
 		/* no delegation since it is just created */
 		err = vfsub_unlink(h_parent->d_inode, &h_path,
 				   /*delegated*/NULL, /*force*/0);

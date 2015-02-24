@@ -61,8 +61,7 @@ loff_t au_dir_size(struct file *file, struct dentry *dentry)
 
 	sz = 0;
 	if (file) {
-		AuDebugOn(!file_inode(file));
-		AuDebugOn(!S_ISDIR(file_inode(file)->i_mode));
+		AuDebugOn(!d_is_directory(file->f_path.dentry));
 
 		bend = au_fbend_dir(file);
 		for (bindex = au_fbstart(file);
@@ -74,8 +73,7 @@ loff_t au_dir_size(struct file *file, struct dentry *dentry)
 		}
 	} else {
 		AuDebugOn(!dentry);
-		AuDebugOn(!dentry->d_inode);
-		AuDebugOn(!S_ISDIR(dentry->d_inode->i_mode));
+		AuDebugOn(!d_is_directory(dentry));
 
 		bend = au_dbtaildir(dentry);
 		for (bindex = au_dbstart(dentry);

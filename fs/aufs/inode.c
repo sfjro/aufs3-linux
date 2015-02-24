@@ -334,7 +334,7 @@ out:
 /* todo: return with unlocked? */
 struct inode *au_new_inode(struct dentry *dentry, int must_new)
 {
-	struct inode *inode, *h_inode;
+	struct inode *inode;
 	struct dentry *h_dentry;
 	struct super_block *sb;
 	struct mutex *mtx;
@@ -345,15 +345,14 @@ struct inode *au_new_inode(struct dentry *dentry, int must_new)
 	sb = dentry->d_sb;
 	bstart = au_dbstart(dentry);
 	h_dentry = au_h_dptr(dentry, bstart);
-	h_inode = h_dentry->d_inode;
-	h_ino = h_inode->i_ino;
+	h_ino = h_dentry->d_inode->i_ino;
 
 	/*
 	 * stop 'race'-ing between hardlinks under different
 	 * parents.
 	 */
 	mtx = NULL;
-	if (!S_ISDIR(h_inode->i_mode))
+	if (!d_is_directory(h_dentry))
 		mtx = &au_sbr(sb, bstart)->br_xino.xi_nondir_mtx;
 
 new_ino:
@@ -381,10 +380,10 @@ new_ino:
 	AuDbg("%lx, new %d\n", inode->i_state, !!(inode->i_state & I_NEW));
 	if (inode->i_state & I_NEW) {
 		/* verbose coding for lock class name */
-		if (unlikely(S_ISLNK(h_inode->i_mode)))
+		if (unlikely(d_is_symlink(h_dentry)))
 			au_rw_class(&au_ii(inode)->ii_rwsem,
 				    au_lc_key + AuLcSymlink_IIINFO);
-		else if (unlikely(S_ISDIR(h_inode->i_mode)))
+		else if (unlikely(d_is_directory(h_dentry)))
 			au_rw_class(&au_ii(inode)->ii_rwsem,
 				    au_lc_key + AuLcDir_IIINFO);
 		else /* likely */

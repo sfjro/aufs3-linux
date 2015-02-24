@@ -323,7 +323,7 @@ int aufs_unlink(struct inode *dir, struct dentry *dentry)
 	inode = dentry->d_inode;
 	IMustLock(inode);
 	err = -EISDIR;
-	if (unlikely(S_ISDIR(inode->i_mode)))
+	if (unlikely(d_is_directory(dentry)))
 		goto out_unlock; /* possible? */
 
 	bstart = au_dbstart(dentry);
@@ -424,7 +424,7 @@ int aufs_rmdir(struct inode *dir, struct dentry *dentry)
 	inode = dentry->d_inode;
 	IMustLock(inode);
 	err = -ENOTDIR;
-	if (unlikely(!S_ISDIR(inode->i_mode)))
+	if (unlikely(!d_is_directory(dentry)))
 		goto out_unlock; /* possible? */
 
 	err = -ENOMEM;
