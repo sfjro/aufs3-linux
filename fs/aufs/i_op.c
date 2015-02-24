@@ -763,7 +763,7 @@ static int aufs_setattr(struct dentry *dentry, struct iattr *ia)
 
 	if (ia->ia_valid & ATTR_FILE) {
 		/* currently ftruncate(2) only */
-		AuDebugOn(!S_ISREG(inode->i_mode));
+		AuDebugOn(!d_is_reg(dentry));
 		file = ia->ia_file;
 		err = au_reval_and_lock_fdi(file, au_reopen_nondir, /*wlock*/1);
 		if (unlikely(err))

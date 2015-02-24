@@ -1200,7 +1200,6 @@ static int au_br_mod_files_ro(struct super_block *sb, aufs_bindex_t bindex)
 	aufs_bindex_t br_id;
 	unsigned char verbose, writer;
 	struct file *file, *hf, **array;
-	struct inode *inode;
 	struct au_hfile *hfile;
 
 	mnt_flags = au_mntflags(sb);
@@ -1229,10 +1228,9 @@ static int au_br_mod_files_ro(struct super_block *sb, aufs_bindex_t bindex)
 			goto out_array;
 		}
 
-		inode = file_inode(file);
 		hfile = &au_fi(file)->fi_htop;
 		hf = hfile->hf_file;
-		if (!S_ISREG(inode->i_mode)
+		if (!d_is_reg(file->f_path.dentry)
 		    || !(file->f_mode & FMODE_WRITE)
 		    || hfile->hf_br->br_id != br_id
 		    || !(hf->f_mode & FMODE_WRITE))

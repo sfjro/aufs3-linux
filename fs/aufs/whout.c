@@ -84,7 +84,7 @@ int au_wh_test(struct dentry *h_parent, struct qstr *wh_name, int try_sio)
 		goto out_wh; /* success */
 
 	err = 1;
-	if (S_ISREG(wh_dentry->d_inode->i_mode))
+	if (d_is_reg(wh_dentry))
 		goto out_wh; /* success */
 
 	err = -EIO;
@@ -257,7 +257,7 @@ static int unlink_wh_name(struct dentry *h_parent, struct qstr *wh,
 		err = PTR_ERR(h_path.dentry);
 	else {
 		if (h_path.dentry->d_inode
-		    && S_ISREG(h_path.dentry->d_inode->i_mode))
+		    && d_is_reg(h_path.dentry))
 			err = do_unlink_wh(h_parent->d_inode, &h_path);
 		dput(h_path.dentry);
 	}
@@ -414,7 +414,7 @@ static int au_wh_init_rw(struct dentry *h_root, struct au_wbr *wbr,
 	if (!base[AuBrWh_BASE].dentry->d_inode) {
 		h_path->dentry = base[AuBrWh_BASE].dentry;
 		err = vfsub_create(h_dir, h_path, WH_MASK, /*want_excl*/true);
-	} else if (S_ISREG(base[AuBrWh_BASE].dentry->d_inode->i_mode))
+	} else if (d_is_reg(base[AuBrWh_BASE].dentry))
 		err = 0;
 	else
 		pr_err("unknown %pd2 exists\n", base[AuBrWh_BASE].dentry);

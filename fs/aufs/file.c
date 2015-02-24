@@ -123,7 +123,7 @@ static int au_cmoo(struct dentry *dentry)
 		.pin	= &pin,
 		.flags	= AuCpup_DTIME | AuCpup_HOPEN
 	};
-	struct inode *inode, *delegated;
+	struct inode *delegated;
 	struct super_block *sb;
 	struct au_sbinfo *sbinfo;
 	struct au_fhsm *fhsm;
@@ -133,8 +133,7 @@ static int au_cmoo(struct dentry *dentry)
 	struct au_hinode *hdir;
 
 	DiMustWriteLock(dentry);
-	inode = dentry->d_inode;
-	IiMustWriteLock(inode);
+	IiMustWriteLock(dentry->d_inode);
 
 	err = 0;
 	if (IS_ROOT(dentry))
@@ -156,7 +155,7 @@ static int au_cmoo(struct dentry *dentry)
 	cmoo = au_br_cmoo(br->br_perm);
 	if (!cmoo)
 		goto out;
-	if (!S_ISREG(inode->i_mode))
+	if (!d_is_reg(dentry))
 		cmoo &= AuBrAttr_COO_ALL;
 	if (!cmoo)
 		goto out;

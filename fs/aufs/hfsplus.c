@@ -39,7 +39,7 @@ struct file *au_h_open_pre(struct dentry *dentry, aufs_bindex_t bindex,
 
 	h_file = NULL;
 	if (au_test_hfsplus(h_dentry->d_sb)
-	    && S_ISREG(h_dentry->d_inode->i_mode))
+	    && d_is_reg(h_dentry))
 		h_file = au_h_open(dentry, bindex,
 				   O_RDONLY | O_NOATIME | O_LARGEFILE,
 				   /*file*/NULL, force_wr);
