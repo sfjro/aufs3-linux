@@ -73,8 +73,11 @@ int au_wh_test(struct dentry *h_parent, struct qstr *wh_name, int try_sio)
 	else
 		wh_dentry = au_sio_lkup_one(wh_name, h_parent);
 	err = PTR_ERR(wh_dentry);
-	if (IS_ERR(wh_dentry))
+	if (IS_ERR(wh_dentry)) {
+		if (err == -ENAMETOOLONG)
+			err = 0;
 		goto out;
+	}
 
 	err = 0;
 	if (!wh_dentry->d_inode)

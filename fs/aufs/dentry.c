@@ -75,8 +75,12 @@ real_lookup:
 		h_dentry = vfsub_lkup_one(&dentry->d_name, h_parent);
 	else
 		h_dentry = au_sio_lkup_one(&dentry->d_name, h_parent);
-	if (IS_ERR(h_dentry))
+	if (IS_ERR(h_dentry)) {
+		if (PTR_ERR(h_dentry) == -ENAMETOOLONG
+		    && !allow_neg)
+			h_dentry = NULL;
 		goto out;
+	}
 
 	h_inode = h_dentry->d_inode;
 	if (!h_inode) {
@@ -185,7 +189,8 @@ int au_lkup_dentry(struct dentry *dentry, aufs_bindex_t bstart, mode_t type)
 		err = PTR_ERR(h_dentry);
 		if (IS_ERR(h_dentry))
 			goto out_parent;
-		au_fclr_lkup(args.flags, ALLOW_NEG);
+		if (h_dentry)
+			au_fclr_lkup(args.flags, ALLOW_NEG);
 		if (dirperm1)
 			au_fset_lkup(args.flags, IGNORE_PERM);
 
