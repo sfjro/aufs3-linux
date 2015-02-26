@@ -319,7 +319,7 @@ static int au_whdir(struct inode *h_dir, struct path *path)
 		if (au_test_nfs(path->dentry->d_sb))
 			mode |= S_IXUGO;
 		err = vfsub_mkdir(h_dir, path, mode);
-	} else if (d_is_directory(path->dentry))
+	} else if (d_is_dir(path->dentry))
 		err = 0;
 	else
 		pr_err("unknown %pd exists\n", path->dentry);

@@ -629,7 +629,7 @@ int au_pin_and_icpup(struct dentry *dentry, struct iattr *ia,
 		.flags		= 0
 	};
 
-	if (d_is_directory(dentry))
+	if (d_is_dir(dentry))
 		au_fset_wrdir(wr_dir_args.flags, ISDIR);
 	/* plink or hi_wh() case */
 	bstart = au_dbstart(dentry);

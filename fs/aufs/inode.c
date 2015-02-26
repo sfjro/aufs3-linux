@@ -352,7 +352,7 @@ struct inode *au_new_inode(struct dentry *dentry, int must_new)
 	 * parents.
 	 */
 	mtx = NULL;
-	if (!d_is_directory(h_dentry))
+	if (!d_is_dir(h_dentry))
 		mtx = &au_sbr(sb, bstart)->br_xino.xi_nondir_mtx;
 
 new_ino:
@@ -383,7 +383,7 @@ new_ino:
 		if (unlikely(d_is_symlink(h_dentry)))
 			au_rw_class(&au_ii(inode)->ii_rwsem,
 				    au_lc_key + AuLcSymlink_IIINFO);
-		else if (unlikely(d_is_directory(h_dentry)))
+		else if (unlikely(d_is_dir(h_dentry)))
 			au_rw_class(&au_ii(inode)->ii_rwsem,
 				    au_lc_key + AuLcDir_IIINFO);
 		else /* likely */
