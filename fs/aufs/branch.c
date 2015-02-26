@@ -851,7 +851,7 @@ static int test_file_busy(struct super_block *sb, aufs_bindex_t br_id,
 		/* AuDbg("%pD\n", file); */
 		fi_read_lock(file);
 		bstart = au_fbstart(file);
-		if (!d_is_directory(file->f_path.dentry)) {
+		if (!d_is_dir(file->f_path.dentry)) {
 			hfile = &au_fi(file)->fi_htop;
 			if (hfile->hf_br->br_id == br_id)
 				err = -EBUSY;
@@ -884,7 +884,7 @@ static void br_del_file(struct file **to_free, unsigned long long opened,
 			break;
 
 		/* AuDbg("%pD\n", file); */
-		AuDebugOn(!d_is_directory(file->f_path.dentry));
+		AuDebugOn(!d_is_dir(file->f_path.dentry));
 		bfound = -1;
 		fidir = au_fi(file)->fi_hdir;
 		AuDebugOn(!fidir);

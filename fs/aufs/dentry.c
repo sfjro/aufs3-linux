@@ -96,9 +96,9 @@ real_lookup:
 		au_set_dbstart(dentry, bindex);
 	au_set_h_dptr(dentry, bindex, h_dentry);
 
-	if (!d_is_directory(h_dentry)
+	if (!d_is_dir(h_dentry)
 	    || !wh_able
-	    || (d_is_positive(dentry) && !d_is_directory(dentry)))
+	    || (d_is_positive(dentry) && !d_is_dir(dentry)))
 		goto out; /* success */
 
 	mutex_lock_nested(&h_inode->i_mutex, AuLsc_I_CHILD);
@@ -157,7 +157,7 @@ int au_lkup_dentry(struct dentry *dentry, aufs_bindex_t bstart, mode_t type)
 		goto out;
 
 	inode = dentry->d_inode;
-	isdir = !!d_is_directory(dentry);
+	isdir = !!d_is_dir(dentry);
 	if (!type)
 		au_fset_lkup(args.flags, ALLOW_NEG);
 	dirperm1 = !!au_opt_test(au_mntflags(sb), DIRPERM1);
@@ -178,7 +178,7 @@ int au_lkup_dentry(struct dentry *dentry, aufs_bindex_t bstart, mode_t type)
 			continue;
 		}
 		h_parent = au_h_dptr(parent, bindex);
-		if (!h_parent || !d_is_directory(h_parent))
+		if (!h_parent || !d_is_dir(h_parent))
 			continue;
 
 		h_dir = h_parent->d_inode;
@@ -527,7 +527,7 @@ static void au_hide(struct dentry *dentry)
 	int err;
 
 	AuDbgDentry(dentry);
-	if (d_is_directory(dentry)) {
+	if (d_is_dir(dentry)) {
 		/* shrink_dcache_parent(dentry); */
 		err = au_hide_children(dentry);
 		if (unlikely(err))
