@@ -855,9 +855,10 @@ int aufs_rename(struct inode *_src_dir, struct dentry *_src_dentry,
 
 	err = -ENOTDIR;
 	flags = AuLock_FLUSH | AuLock_NOPLM | AuLock_GEN;
-	if (S_ISDIR(a->src_inode->i_mode)) {
+	if (d_is_directory(a->src_dentry)) {
 		au_fset_ren(a->flags, ISDIR);
-		if (unlikely(a->dst_inode && !S_ISDIR(a->dst_inode->i_mode)))
+		if (unlikely(d_is_positive(a->dst_dentry)
+			     && !d_is_directory(a->dst_dentry)))
 			goto out_free;
 		err = aufs_read_and_write_lock2(a->dst_dentry, a->src_dentry,
 						AuLock_DIR | flags);
