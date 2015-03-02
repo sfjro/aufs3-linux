@@ -624,11 +624,11 @@ int au_pin_and_icpup(struct dentry *dentry, struct iattr *ia,
 		.flags		= 0
 	};
 
-	bstart = au_dbstart(dentry);
-	inode = dentry->d_inode;
-	if (S_ISDIR(inode->i_mode))
+	if (d_is_dir(dentry))
 		au_fset_wrdir(wr_dir_args.flags, ISDIR);
 	/* plink or hi_wh() case */
+	bstart = au_dbstart(dentry);
+	inode = dentry->d_inode;
 	ibstart = au_ibstart(inode);
 	if (bstart != ibstart && !au_test_ro(inode->i_sb, ibstart, inode))
 		wr_dir_args.force_btgt = ibstart;
@@ -750,7 +750,7 @@ static int aufs_setattr(struct dentry *dentry, struct iattr *ia)
 
 	if (ia->ia_valid & ATTR_FILE) {
 		/* currently ftruncate(2) only */
-		AuDebugOn(!S_ISREG(inode->i_mode));
+		AuDebugOn(!d_is_reg(dentry));
 		file = ia->ia_file;
 		err = au_reval_and_lock_fdi(file, au_reopen_nondir, /*wlock*/1);
 		if (unlikely(err))
