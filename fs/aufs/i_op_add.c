@@ -201,6 +201,11 @@ lock_hdir_lkup_wh(struct dentry *dentry, struct au_dtime *dt,
 	if (bcpup != au_dbwh(dentry))
 		goto out; /* success */
 
+	/*
+	 * ENAMETOOLONG here means that if we allowed create such name, then it
+	 * would not be able to removed in the future. So we don't allow such
+	 * name here and we don't handle ENAMETOOLONG differently here.
+	 */
 	wh_dentry = au_wh_lkup(h_parent, &dentry->d_name, br);
 
 out_unpin:
