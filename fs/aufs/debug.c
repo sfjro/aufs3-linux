@@ -427,7 +427,7 @@ void au_dbg_verify_dir_parent(struct dentry *dentry, unsigned int sigen)
 	struct dentry *parent;
 
 	parent = dget_parent(dentry);
-	AuDebugOn(!S_ISDIR(dentry->d_inode->i_mode));
+	AuDebugOn(!d_is_dir(dentry));
 	AuDebugOn(IS_ROOT(dentry));
 	AuDebugOn(au_digen_test(parent, sigen));
 	dput(parent);
@@ -436,11 +436,9 @@ void au_dbg_verify_dir_parent(struct dentry *dentry, unsigned int sigen)
 void au_dbg_verify_nondir_parent(struct dentry *dentry, unsigned int sigen)
 {
 	struct dentry *parent;
-	struct inode *inode;
 
 	parent = dget_parent(dentry);
-	inode = dentry->d_inode;
-	AuDebugOn(inode && S_ISDIR(dentry->d_inode->i_mode));
+	AuDebugOn(d_is_dir(dentry));
 	AuDebugOn(au_digen_test(parent, sigen));
 	dput(parent);
 }
