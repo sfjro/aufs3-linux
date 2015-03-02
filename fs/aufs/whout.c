@@ -73,8 +73,11 @@ int au_wh_test(struct dentry *h_parent, struct qstr *wh_name, int try_sio)
 	else
 		wh_dentry = au_sio_lkup_one(wh_name, h_parent);
 	err = PTR_ERR(wh_dentry);
-	if (IS_ERR(wh_dentry))
+	if (IS_ERR(wh_dentry)) {
+		if (err == -ENAMETOOLONG)
+			err = 0;
 		goto out;
+	}
 
 	err = 0;
 	if (!wh_dentry->d_inode)
@@ -316,7 +319,7 @@ static int au_whdir(struct inode *h_dir, struct path *path)
 		if (au_test_nfs(path->dentry->d_sb))
 			mode |= S_IXUGO;
 		err = vfsub_mkdir(h_dir, path, mode);
-	} else if (S_ISDIR(path->dentry->d_inode->i_mode))
+	} else if (d_is_dir(path->dentry))
 		err = 0;
 	else
 		pr_err("unknown %pd exists\n", path->dentry);
