@@ -204,6 +204,8 @@ static const char *au_optstr(int *val, match_table_t tbl)
 	int v;
 
 	v = *val;
+	if (!v)
+		goto out;
 	p = tbl;
 	while (p->pattern) {
 		if (p->token
@@ -213,6 +215,8 @@ static const char *au_optstr(int *val, match_table_t tbl)
 		}
 		p++;
 	}
+
+out:
 	return NULL;
 }
 
