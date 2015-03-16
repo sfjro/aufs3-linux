@@ -104,7 +104,7 @@ struct au_sbinfo {
 	/* branch management */
 	unsigned int		si_generation;
 
-	/* see above flags */
+	/* see AuSi_ flags */
 	unsigned char		au_si_status;
 
 	aufs_bindex_t		si_bend;
