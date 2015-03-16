@@ -191,14 +191,19 @@ static const char *au_optstr(int *val, match_table_t tbl)
 	int v;
 
 	v = *val;
+	if (!v)
+		goto out;
 	p = tbl;
-	while (p->token) {
-		if ((v & p->token) == p->token) {
+	while (p->pattern) {
+		if (p->token
+		    && (v & p->token) == p->token) {
 			*val &= ~p->token;
 			return p->pattern;
 		}
 		p++;
 	}
+
+out:
 	return NULL;
 }
 
@@ -216,13 +221,17 @@ static match_table_t brattr = {
 	{AuBrAttr_COO_REG, AUFS_BRATTR_COO_REG},
 	{AuBrAttr_COO_ALL, AUFS_BRATTR_COO_ALL},
 	{AuBrAttr_UNPIN, AUFS_BRATTR_UNPIN},
+#ifdef CONFIG_AUFS_FHSM
 	{AuBrAttr_FHSM, AUFS_BRATTR_FHSM},
+#endif
+#ifdef CONFIG_AUFS_XATTR
 	{AuBrAttr_ICEX, AUFS_BRATTR_ICEX},
 	{AuBrAttr_ICEX_SEC, AUFS_BRATTR_ICEX_SEC},
 	{AuBrAttr_ICEX_SYS, AUFS_BRATTR_ICEX_SYS},
 	{AuBrAttr_ICEX_TR, AUFS_BRATTR_ICEX_TR},
 	{AuBrAttr_ICEX_USR, AUFS_BRATTR_ICEX_USR},
 	{AuBrAttr_ICEX_OTH, AUFS_BRATTR_ICEX_OTH},
+#endif
 
 	/* ro/rr branch */
 	{AuBrRAttr_WH, AUFS_BRRATTR_WH},
