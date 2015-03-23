@@ -68,17 +68,6 @@ because the number of permission check is reduced when the number of
 branch is many.
 
 
-Loopback Mount
-----------------------------------------------------------------------
-Basically aufs supports any type of filesystem and block device for a
-branch (actually there are some exceptions). But it is prohibited to add
-a loopback mounted one whose backend file exists in a filesystem which is
-already added to aufs. The reason is to protect aufs from a recursive
-lookup. If it was allowed, the aufs lookup operation might re-enter a
-lookup for the loopback mounted branch in the same context, and will
-cause a deadlock.
-
-
 Revalidate Dentry and UDBA (User's Direct Branch Access)
 ----------------------------------------------------------------------
 Generally VFS helpers re-validate a dentry as a part of lookup.
