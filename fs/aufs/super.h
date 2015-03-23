@@ -539,7 +539,7 @@ static inline int si_noflush_write_trylock(struct super_block *sb)
 	return locked;
 }
 
-#if 0 /* unused */
+#if 0 /* reserved */
 static inline int si_read_trylock(struct super_block *sb, int flags)
 {
 	if (au_ftest_lock(flags, FLUSH))
@@ -554,7 +554,7 @@ static inline void si_read_unlock(struct super_block *sb)
 	__si_read_unlock(sb);
 }
 
-#if 0 /* unused */
+#if 0 /* reserved */
 static inline int si_write_trylock(struct super_block *sb, int flags)
 {
 	if (au_ftest_lock(flags, FLUSH))
@@ -569,7 +569,7 @@ static inline void si_write_unlock(struct super_block *sb)
 	__si_write_unlock(sb);
 }
 
-#if 0 /* unused */
+#if 0 /* reserved */
 static inline void si_downgrade_lock(struct super_block *sb)
 {
 	__si_downgrade_lock(sb);
