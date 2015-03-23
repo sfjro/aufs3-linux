@@ -179,12 +179,6 @@ struct au_sbinfo {
 	 */
 	unsigned int		si_dirwh;
 
-	/*
-	 * rename(2) a directory with all children.
-	 */
-	/* reserved for future use */
-	/* int			si_rendir; */
-
 	/* pseudo_link list */
 	struct au_sphlhead	si_plink[AuPlink_NHASH];
 	wait_queue_head_t	si_plink_wq;
