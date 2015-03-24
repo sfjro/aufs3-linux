@@ -16,18 +16,18 @@ readonly, mounted /au, /rw and /ro respectively.
 
 Aufs lookup operation finds /ro/fileA and gets dentry for that. These
 pointers are stored in a aufs dentry. The array in aufs dentry will be,
-- [0] = NULL
+- [0] = NULL (because /rw/fileA doesn't exist)
 - [1] = /ro/fileA
 
 This style of an array is essentially same to the aufs
 superblock/inode/dentry/file objects.
 
 Because aufs supports manipulating branches, ie. add/delete/change
-dynamically, these objects has its own generation. When branches are
-changed, the generation in aufs superblock is incremented. And a
-generation in other object are compared when it is accessed.
-When a generation in other objects are obsoleted, aufs refreshes the
-internal array.
+branches dynamically, these objects has its own generation. When
+branches are changed, the generation in aufs superblock is
+incremented. And a generation in other object are compared when it is
+accessed. When a generation in other objects are obsoleted, aufs
+refreshes the internal array.
 
 
 Superblock
@@ -35,8 +35,8 @@ Superblock
 Additionally aufs superblock has some data for policies to select one
 among multiple writable branches, XIB files, pseudo-links and kobject.
 See below in detail.
-About the policies which supports copy-down a directory, see policy.txt
-too.
+About the policies which supports copy-down a directory, see
+wbr_policy.txt too.
 
 
 Branch and XINO(External Inode Number Translation Table)
@@ -56,13 +56,20 @@ which has a hole in it and doesn't consume as much disk space as it
 might appear. If your branch filesystem consumes disk space for such
 holes, then you should specify 'xino=' option at mounting aufs.
 
+Aufs has a mount option to free the disk blocks for such holes in XINO
+files on tmpfs or ramdisk. But it is not so effective actually. If you
+meet a problem of disk shortage due to XINO files, then you should try
+"tmpfs-ino.patch" (and "vfs-ino.patch" too) in aufs4-standalone.git.
+The patch localizes the assignment inumbers per tmpfs-mount and avoid
+the holes in XINO files.
+
 Also a writable branch has three kinds of "whiteout bases". All these
-are existed when the branch is joined to aufs and the names are
+are existed when the branch is joined to aufs, and their names are
 whiteout-ed doubly, so that users will never see their names in aufs
 hierarchy.
-1. a regular file which will be linked to all whiteouts.
+1. a regular file which will be hardlinked to all whiteouts.
 2. a directory to store a pseudo-link.
-3. a directory to store an "orphan-ed" file temporary.
+3. a directory to store an "orphan"-ed file temporary.
 
 1. Whiteout Base
    When you remove a file on a readonly branch, aufs handles it as a
@@ -79,8 +86,8 @@ hierarchy.
    creating a file under this dir, the file is unlinked.
 
 Because aufs supports manipulating branches, ie. add/delete/change
-dynamically, a branch has its own id. When the branch order changes, aufs
-finds the new index by searching the branch id.
+dynamically, a branch has its own id. When the branch order changes,
+aufs finds the new index by searching the branch id.
 
 
 Pseudo-link
@@ -93,7 +100,7 @@ branch. The inode of a pseudo-link is kept in aufs super_block as a
 simple list. If fileB is read after unlinking fileA, aufs returns
 filedata from the pseudo-link instead of the lower readonly
 branch. Because the pseudo-link is based upon the inode, to keep the
-inode number by xino (see above) is important.
+inode number by xino (see above) is essentially necessary.
 
 All the hardlinks under the Pseudo-link Directory of the writable branch
 should be restored in a proper location later. Aufs provides a utility
@@ -111,12 +118,13 @@ mutex (in VFS), it has to return an error.
 XIB(external inode number bitmap)
 ----------------------------------------------------------------------
 Addition to the xino file per a branch, aufs has an external inode number
-bitmap in a superblock object. It is also a file such like a xino file.
+bitmap in a superblock object. It is also an internal file such like a
+xino file.
 It is a simple bitmap to mark whether the aufs inode number is in-use or
 not.
 To reduce the file I/O, aufs prepares a single memory page to cache xib.
 
-Aufs implements a feature to truncate/refresh both of xino and xib to
+As well as XINO files, aufs has a feature to truncate/refresh XIB to
 reduce the number of consumed disk blocks for these files.
 
 
@@ -128,7 +136,7 @@ vfs_readdir() internally for each dir on branches, merges their entries
 with eliminating the whiteout-ed ones, and sets it to file (dir)
 object. So the file object has its entry list until it is closed. The
 entry list will be updated when the file position is zero and becomes
-old. This decision is made in aufs automatically.
+obsoleted. This decision is made in aufs automatically.
 
 The dynamically allocated memory block for the name of entries has a
 unit of 512 bytes (by default) and stores the names contiguously (no
@@ -167,9 +175,8 @@ passes the request to call mkdir or write (for example), and wait for
 its completion. This approach solves a problem of a signal handler
 simply.
 If aufs didn't adopt the workqueue and changed the privilege of the
-process, and if the mkdir/write call arises SIGXFSZ or other signal,
-then the user process might gain a privilege or the generated core file
-was owned by a superuser.
+process, then the process may receive the unexpected SIGXFSZ or other
+signals.
 
 Also aufs uses the system global workqueue ("events" kernel thread) too
 for asynchronous tasks, such like handling inotify/fsnotify, re-creating a
@@ -187,7 +194,7 @@ afraid several utilities (find(1) or something) will have to support it.
 
 Basically the whiteout represents "logical deletion" which stops aufs to
 lookup further, but also it represents "dir is opaque" which also stop
-lookup.
+further lookup.
 
 In aufs, rmdir(2) and rename(2) for dir uses whiteout alternatively.
 In order to make several functions in a single systemcall to be
@@ -195,7 +202,7 @@ revertible, aufs adopts an approach to rename a directory to a temporary
 unique whiteouted name.
 For example, in rename(2) dir where the target dir already existed, aufs
 renames the target dir to a temporary unique whiteouted name before the
-actual rename on a branch and then handles other actions (make it opaque,
+actual rename on a branch, and then handles other actions (make it opaque,
 update the attributes, etc). If an error happens in these actions, aufs
 simply renames the whiteouted name back and returns an error. If all are
 succeeded, aufs registers a function to remove the whiteouted unique
@@ -225,7 +232,7 @@ For desgin and implementation, aufs has to consider these issues.
 - diropq for the ancestor directories may exist on the upper branch.
 - free space on the lower branch will reduce.
 - another access to the file may happen during moving-down, including
-  UDBA.
+  UDBA (see "Revalidate Dentry and UDBA").
 - the file should not be hard-linked nor pseudo-linked. they should be
   handled by auplink utility later.
 
