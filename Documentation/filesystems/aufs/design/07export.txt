@@ -25,10 +25,10 @@ Here is an approach.
   + find the index of a branch from its id in handle, and check it is
     still exist in aufs.
   + 1st level: get the inode number from handle and search it in cache.
-  + 2nd level: if not found, get the parent inode number from handle and
-    search it in cache. and then open the parent dir, find the matching
-    inode number by vfs_readdir() and get its name, and call
-    lookup_one_len() for the target dentry.
+  + 2nd level: if not found in cache, get the parent inode number from
+    the handle and search it in cache. and then open the found parent
+    dir, find the matching inode number by vfs_readdir() and get its
+    name, and call lookup_one_len() for the target dentry.
   + 3rd level: if the parent dir is not cached, call
     exportfs_decode_fh() for a branch and get the parent on a branch,
     build a pathname of it, convert it a pathname in aufs, call
