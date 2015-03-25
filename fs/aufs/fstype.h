@@ -96,60 +96,6 @@ static inline int au_test_ecryptfs(struct super_block *sb __maybe_unused)
 #endif
 }
 
-static inline int au_test_ocfs2(struct super_block *sb __maybe_unused)
-{
-#if defined(CONFIG_OCFS2_FS) || defined(CONFIG_OCFS2_FS_MODULE)
-	return sb->s_magic == OCFS2_SUPER_MAGIC;
-#else
-	return 0;
-#endif
-}
-
-static inline int au_test_ocfs2_dlmfs(struct super_block *sb __maybe_unused)
-{
-#if defined(CONFIG_OCFS2_FS_O2CB) || defined(CONFIG_OCFS2_FS_O2CB_MODULE)
-	return sb->s_magic == DLMFS_MAGIC;
-#else
-	return 0;
-#endif
-}
-
-static inline int au_test_coda(struct super_block *sb __maybe_unused)
-{
-#if defined(CONFIG_CODA_FS) || defined(CONFIG_CODA_FS_MODULE)
-	return sb->s_magic == CODA_SUPER_MAGIC;
-#else
-	return 0;
-#endif
-}
-
-static inline int au_test_v9fs(struct super_block *sb __maybe_unused)
-{
-#if defined(CONFIG_9P_FS) || defined(CONFIG_9P_FS_MODULE)
-	return sb->s_magic == V9FS_MAGIC;
-#else
-	return 0;
-#endif
-}
-
-static inline int au_test_ext4(struct super_block *sb __maybe_unused)
-{
-#if defined(CONFIG_EXT4_FS) || defined(CONFIG_EXT4_FS_MODULE)
-	return sb->s_magic == EXT4_SUPER_MAGIC;
-#else
-	return 0;
-#endif
-}
-
-static inline int au_test_sysv(struct super_block *sb __maybe_unused)
-{
-#if defined(CONFIG_SYSV_FS) || defined(CONFIG_SYSV_FS_MODULE)
-	return !strcmp(au_sbtype(sb), "sysv");
-#else
-	return 0;
-#endif
-}
-
 static inline int au_test_ramfs(struct super_block *sb)
 {
 	return sb->s_magic == RAMFS_MAGIC;
@@ -199,15 +145,6 @@ static inline int au_test_minix(struct super_block *sb __maybe_unused)
 		|| sb->s_magic == MINIX2_SUPER_MAGIC2
 		|| sb->s_magic == MINIX_SUPER_MAGIC
 		|| sb->s_magic == MINIX_SUPER_MAGIC2;
-#else
-	return 0;
-#endif
-}
-
-static inline int au_test_cifs(struct super_block *sb __maybe_unused)
-{
-#if defined(CONFIG_CIFS_FS) || defined(CONFIGCIFS_FS_MODULE)
-	return sb->s_magic == CIFS_MAGIC_NUMBER;
 #else
 	return 0;
 #endif
@@ -342,10 +279,7 @@ static inline int au_test_fs_refresh_iattr(struct super_block *sb)
 {
 	return au_test_nfs(sb)
 		|| au_test_fuse(sb)
-		/* || au_test_ocfs2(sb) */	/* untested */
 		/* || au_test_btrfs(sb) */	/* untested */
-		/* || au_test_coda(sb) */	/* untested */
-		/* || au_test_v9fs(sb) */	/* untested */
 		;
 }
 
@@ -358,10 +292,6 @@ static inline int au_test_fs_bad_iattr_size(struct super_block *sb)
 		|| au_test_btrfs(sb)
 		|| au_test_ubifs(sb)
 		|| au_test_hfsplus(sb)	/* maintained, but incorrect */
-		/* || au_test_ext4(sb) */	/* untested */
-		/* || au_test_ocfs2(sb) */	/* untested */
-		/* || au_test_ocfs2_dlmfs(sb) */ /* untested */
-		/* || au_test_sysv(sb) */	/* untested */
 		/* || au_test_minix(sb) */	/* untested */
 		;
 }
@@ -373,7 +303,6 @@ static inline int au_test_fs_bad_iattr_size(struct super_block *sb)
 static inline int au_test_fs_bad_iattr(struct super_block *sb)
 {
 	return au_test_fs_bad_iattr_size(sb)
-		/* || au_test_cifs(sb) */	/* untested */
 		|| au_test_fat(sb)
 		|| au_test_msdos(sb)
 		|| au_test_vfat(sb);
@@ -398,17 +327,7 @@ static inline int au_test_fs_notime(struct super_block *sb)
 	return au_test_nfs(sb)
 		|| au_test_fuse(sb)
 		|| au_test_ubifs(sb)
-		/* || au_test_cifs(sb) */	/* untested */
 		;
-}
-
-/*
- * filesystems which requires replacing i_mapping.
- */
-static inline int au_test_fs_bad_mapping(struct super_block *sb)
-{
-	return au_test_fuse(sb)
-		|| au_test_ubifs(sb);
 }
 
 /* temporary support for i#1 in cramfs */

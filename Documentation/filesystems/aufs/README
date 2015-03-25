@@ -7,7 +7,7 @@ Junjiro R. Okajima
 0. Introduction
 ----------------------------------------
 In the early days, aufs was entirely re-designed and re-implemented
-Unionfs Version 1.x series. After many original ideas, approaches,
+Unionfs Version 1.x series. Adding many original ideas, approaches,
 improvements and implementations, it becomes totally different from
 Unionfs while keeping the basic features.
 Recently, Unionfs Version 2.x series begin taking some of the same
@@ -42,7 +42,12 @@ PS. Al Viro seems have a plan to merge aufs as well as overlayfs and
 - dynamic branch manipulation, add, del.
 - etc...
 
-Also there are many enhancements in aufs1, such as:
+Also there are many enhancements in aufs, such as:
+- test only the highest one for the directory permission (dirperm1)
+- copyup on open (coo=)
+- 'move' policy for copy-up between two writable branches, after
+  checking free space.
+- xattr, acl
 - readdir(3) in userspace.
 - keep inode number by external inode number table
 - keep the timestamps of file/dir in internal copyup operation
@@ -74,28 +79,18 @@ Also there are many enhancements in aufs1, such as:
 
 Currently these features are dropped temporary from aufs3.
 See design/08plan.txt in detail.
-- test only the highest one for the directory permission (dirperm1)
-- copyup on open (coo=)
 - nested mount, i.e. aufs as readonly no-whiteout branch of another aufs
   (robr)
 - statistics of aufs thread (/sys/fs/aufs/stat)
-- delegation mode (dlgt)
-  a delegation of the internal branch access to support task I/O
-  accounting, which also supports Linux Security Modules (LSM) mainly
-  for Suse AppArmor.
-- intent.open/create (file open in a single lookup)
 
 Features or just an idea in the future (see also design/*.txt),
 - reorder the branch index without del/re-add.
 - permanent xino files for NFSD
 - an option for refreshing the opened files after add/del branches
-- 'move' policy for copy-up between two writable branches, after
-  checking free space.
 - light version, without branch manipulation. (unnecessary?)
 - copyup in userspace
 - inotify in userspace
 - readv/writev
-- xattr, acl
 
 
 2. Download
