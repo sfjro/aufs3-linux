@@ -8,9 +8,9 @@ the target branch for file creation or copy-up. By default, the highest
 writable branch which has the parent (or ancestor) dir of the target
 file is chosen (top-down-parent policy).
 By user's request, aufs implements some other policies to select the
-writable branch, for file creation two policies, round-robin and
-most-free-space policies. For copy-up three policies, top-down-parent,
-bottom-up-parent and bottom-up policies.
+writable branch, for file creation several policies, round-robin,
+most-free-space, and other policies. For copy-up, top-down-parent,
+bottom-up-parent, bottom-up and others.
 
 As expected, the round-robin policy selects the branch in circular. When
 you have two writable branches and creates 10 new files, 5 files will be
