@@ -10,8 +10,7 @@ and changing its permission/attribute, there are a lot of works to do.
 Add a Branch
 ----------------------------------------------------------------------
 o Confirm the adding dir exists outside of aufs, including loopback
-  mount.
-- and other various attributes...
+  mount, and its various attributes.
 o Initialize the xino file and whiteout bases if necessary.
   See struct.txt.
 
@@ -26,7 +25,7 @@ o Check the owner/group/mode of the directory
   writable branch, and the writable branch is world-writable, then a
   malicious guy may create /etc/passwd on the writable branch directly
   and the infected file will be valid in aufs.
-  I am afraid it can be a security issue, but nothing to do except
+  I am afraid it can be a security issue, but aufs can do nothing except
   producing a warning.
 
 
