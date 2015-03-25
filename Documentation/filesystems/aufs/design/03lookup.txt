@@ -4,23 +4,13 @@
 Lookup in a Branch
 ----------------------------------------------------------------------
 Since aufs has a character of sub-VFS (see Introduction), it operates
-lookup for branches as VFS does. It may be a heavy work. Generally
-speaking struct nameidata is a bigger structure and includes many
-information. But almost all lookup operation in aufs is the simplest
-case, ie. lookup only an entry directly connected to its parent. Digging
-down the directory hierarchy is unnecessary.
+lookup for branches as VFS does. It may be a heavy work. But almost all
+lookup operation in aufs is the simplest case, ie. lookup only an entry
+directly connected to its parent. Digging down the directory hierarchy
+is unnecessary. VFS has a function lookup_one_len() for that use, and
+aufs calls it.
 
-VFS has a function lookup_one_len() for that use, but it is not usable
-for a branch filesystem which requires struct nameidata. So aufs
-implements a simple lookup wrapper function. When a branch filesystem
-allows NULL as nameidata, it calls lookup_one_len(). Otherwise it builds
-a simplest nameidata and calls lookup_hash().
-Here aufs applies "a principle in NFSD", ie. if the filesystem supports
-NFS-export, then it has to support NULL as a nameidata parameter for
-->create(), ->lookup() and ->d_revalidate(). So the lookup wrapper in
-aufs tests if ->s_export_op in the branch is NULL or not.
-
-When a branch is a remote filesystem, aufs basically trusts its
+When a branch is a remote filesystem, aufs basically relies upon its
 ->d_revalidate(), also aufs forces the hardest revalidate tests for
 them.
 For d_revalidate, aufs implements three levels of revalidate tests. See
@@ -35,7 +25,7 @@ Let's try case study.
 - "dirA" exists under /ro, but /rw. and its mode is 0700.
 - user invoked "chmod a+rx /au/dirA"
 - the internal copy-up is activated and "/rw/dirA" is created and its
-  permission bits are set to world readble.
+  permission bits are set to world readable.
 - then "/au/dirA" becomes world readable?
 
 In this case, /ro/dirA is still 0700 since it exists in readonly branch,
@@ -44,8 +34,9 @@ branch, it should not respond readdir request from other users. But user
 allowed it by chmod. Should really aufs rejects showing the entries
 under /ro/dirA?
 
-To be honest, I don't have a best solution for this case. So aufs
-implements 'dirperm1' and 'nodirperm1' and leave it to users.
+To be honest, I don't have a good solution for this case. So aufs
+implements 'dirperm1' and 'nodirperm1' mount options, and leave it to
+users.
 When dirperm1 is specified, aufs checks only the highest one for the
 directory permission, and shows the entries. Otherwise, as usual, checks
 every dir existing on all branches and rejects the request.
@@ -53,17 +44,6 @@ every dir existing on all branches and rejects the request.
 As a side effect, dirperm1 option improves the performance of aufs
 because the number of permission check is reduced when the number of
 branch is many.
-
-
-Loopback Mount
-----------------------------------------------------------------------
-Basically aufs supports any type of filesystem and block device for a
-branch (actually there are some exceptions). But it is prohibited to add
-a loopback mounted one whose backend file exists in a filesystem which is
-already added to aufs. The reason is to protect aufs from a recursive
-lookup. If it was allowed, the aufs lookup operation might re-enter a
-lookup for the loopback mounted branch in the same context, and will
-cause a deadlock.
 
 
 Revalidate Dentry and UDBA (User's Direct Branch Access)
@@ -115,6 +95,6 @@ selectable by user.
    itself.
 3. No Extra Validation
    This is the simplest test and doesn't add any additional revalidation
-   test, and skip therevalidatin in step 4. It is useful and improves
+   test, and skip the revalidation in step 4. It is useful and improves
    aufs performance when system surely hide the aufs branches from user,
    by over-mounting something (or another method).
