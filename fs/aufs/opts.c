@@ -28,11 +28,11 @@
 
 enum {
 	Opt_br,
-	Opt_add, Opt_del, Opt_mod, Opt_reorder, Opt_append, Opt_prepend,
-	Opt_idel, Opt_imod, Opt_ireorder,
-	Opt_dirwh, Opt_rdcache, Opt_rdblk, Opt_rdhash, Opt_rendir,
+	Opt_add, Opt_del, Opt_mod, Opt_append, Opt_prepend,
+	Opt_idel, Opt_imod,
+	Opt_dirwh, Opt_rdcache, Opt_rdblk, Opt_rdhash,
 	Opt_rdblk_def, Opt_rdhash_def,
-	Opt_xino, Opt_zxino, Opt_noxino,
+	Opt_xino, Opt_noxino,
 	Opt_trunc_xino, Opt_trunc_xino_v, Opt_notrunc_xino,
 	Opt_trunc_xino_path, Opt_itrunc_xino,
 	Opt_trunc_xib, Opt_notrunc_xib,
@@ -40,8 +40,6 @@ enum {
 	Opt_plink, Opt_noplink, Opt_list_plink,
 	Opt_udba,
 	Opt_dio, Opt_nodio,
-	/* Opt_lock, Opt_unlock, */
-	Opt_cmd, Opt_cmd_args,
 	Opt_diropq_a, Opt_diropq_w,
 	Opt_warn_perm, Opt_nowarn_perm,
 	Opt_wbr_copyup, Opt_wbr_create,
@@ -129,8 +127,6 @@ static match_table_t options = {
 
 	{Opt_dirperm1, "dirperm1"},
 	{Opt_nodirperm1, "nodirperm1"},
-
-	{Opt_rendir, "rendir=%d"},
 
 	{Opt_refrof, "refrof"},
 	{Opt_norefrof, "norefrof"},

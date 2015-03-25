@@ -820,7 +820,7 @@ out:
 	return err;
 }
 
-#if 0 /* unused */
+#if 0 /* reserved */
 struct au_cpup_single_args {
 	int *errp;
 	struct au_cp_generic *cpg;
@@ -876,7 +876,7 @@ static int au_cpup_sio_test(struct au_pin *pin, umode_t mode)
 	return do_sio;
 }
 
-#if 0 /* unused */
+#if 0 /* reserved */
 int au_sio_cpup_single(struct au_cp_generic *cpg, struct dentry *dst_parent)
 {
 	int err, wkq_err;
