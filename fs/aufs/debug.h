@@ -93,8 +93,6 @@ AuStubInt0(au_debug_test, void)
 
 /* ---------------------------------------------------------------------- */
 
-struct au_sbinfo;
-struct au_finfo;
 struct dentry;
 #ifdef CONFIG_AUFS_DEBUG
 extern struct mutex au_dbg_mtx;
@@ -112,19 +110,13 @@ void au_dpri_file(struct file *filp);
 struct super_block;
 void au_dpri_sb(struct super_block *sb);
 
-void au_dbg_sleep_jiffy(int jiffy);
-struct iattr;
-void au_dbg_iattr(struct iattr *ia);
-
 #define au_dbg_verify_dinode(d) __au_dbg_verify_dinode(d, __func__, __LINE__)
 void __au_dbg_verify_dinode(struct dentry *dentry, const char *func, int line);
-void au_dbg_verify_dir_parent(struct dentry *dentry, unsigned int sigen);
-void au_dbg_verify_nondir_parent(struct dentry *dentry, unsigned int sigen);
 void au_dbg_verify_gen(struct dentry *parent, unsigned int sigen);
 void au_dbg_verify_kthread(void);
 
 int __init au_debug_init(void);
-void au_debug_sbinfo_init(struct au_sbinfo *sbinfo);
+
 #define AuDbgWhlist(w) do { \
 	mutex_lock(&au_dbg_mtx); \
 	AuDbg(#w "\n"); \
@@ -174,31 +166,10 @@ void au_debug_sbinfo_init(struct au_sbinfo *sbinfo);
 	mutex_unlock(&au_dbg_mtx); \
 } while (0)
 
-#define AuDbgSleep(sec) do { \
-	AuDbg("sleep %d sec\n", sec); \
-	ssleep(sec); \
-} while (0)
-
-#define AuDbgSleepJiffy(jiffy) do { \
-	AuDbg("sleep %d jiffies\n", jiffy); \
-	au_dbg_sleep_jiffy(jiffy); \
-} while (0)
-
-#define AuDbgIAttr(ia) do { \
-	AuDbg("ia_valid 0x%x\n", (ia)->ia_valid); \
-	au_dbg_iattr(ia); \
-} while (0)
-
 #define AuDbgSym(addr) do {				\
 	char sym[KSYM_SYMBOL_LEN];			\
 	sprint_symbol(sym, (unsigned long)addr);	\
 	AuDbg("%s\n", sym);				\
-} while (0)
-
-#define AuInfoSym(addr) do {				\
-	char sym[KSYM_SYMBOL_LEN];			\
-	sprint_symbol(sym, (unsigned long)addr);	\
-	AuInfo("%s\n", sym);				\
 } while (0)
 #else
 AuStubVoid(au_dbg_verify_dinode, struct dentry *dentry)
@@ -208,7 +179,6 @@ AuStubVoid(au_dbg_verify_nondir_parent, struct dentry *dentry,
 AuStubVoid(au_dbg_verify_gen, struct dentry *parent, unsigned int sigen)
 AuStubVoid(au_dbg_verify_kthread, void)
 AuStubInt0(__init au_debug_init, void)
-AuStubVoid(au_debug_sbinfo_init, struct au_sbinfo *sbinfo)
 
 #define AuDbgWhlist(w)		do {} while (0)
 #define AuDbgVdir(v)		do {} while (0)
@@ -217,11 +187,7 @@ AuStubVoid(au_debug_sbinfo_init, struct au_sbinfo *sbinfo)
 #define AuDbgDentry(d)		do {} while (0)
 #define AuDbgFile(f)		do {} while (0)
 #define AuDbgSb(sb)		do {} while (0)
-#define AuDbgSleep(sec)		do {} while (0)
-#define AuDbgSleepJiffy(jiffy)	do {} while (0)
-#define AuDbgIAttr(ia)		do {} while (0)
 #define AuDbgSym(addr)		do {} while (0)
-#define AuInfoSym(addr)		do {} while (0)
 #endif /* CONFIG_AUFS_DEBUG */
 
 /* ---------------------------------------------------------------------- */
