@@ -7,11 +7,8 @@
  */
 
 #include <linux/mm.h>
-#include <linux/module.h>
 #include <linux/seq_file.h>
 #include <linux/statfs.h>
-#include <linux/vmalloc.h>
-#include <linux/writeback.h>
 #include "aufs.h"
 
 /*
