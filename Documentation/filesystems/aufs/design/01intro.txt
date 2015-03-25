@@ -15,7 +15,7 @@ AUFS is a filesystem with features:
 - multi layered stackable unification filesystem, the member directory
   is called as a branch.
 - branch permission and attribute, 'readonly', 'real-readonly',
-  'readwrite', 'whiteout-able', 'link-able whiteout' and their
+  'readwrite', 'whiteout-able', 'link-able whiteout', etc. and their
   combination.
 - internal "file copy-on-write".
 - logical deletion, whiteout.
@@ -66,11 +66,16 @@ There are several missing features known in this implementations such as
 - unnecessary copy-up may happen, for example mmap(MAP_PRIVATE) after
   open(O_RDWR).
 
-Unionfs has a longer history. When I started implementing a stacking filesystem
-(Aug 2005), it already existed. It has virtual super_block, inode,
-dentry and file objects and they have an array pointing lower same kind
-objects. After contributing many patches for Unionfs, I re-started my
-project AUFS (Jun 2006).
+In linux-3.18, "overlay" filesystem (formerly known as "overlayfs") was
+merged into mainline. This is another implementation of UnionMount as a
+separated filesystem. All the limitations and known problems which
+UnionMount are equally inherited to "overlay" filesystem.
+
+Unionfs has a longer history. When I started implementing a stackable
+filesystem (Aug 2005), it already existed. It has virtual super_block,
+inode, dentry and file objects and they have an array pointing lower
+same kind objects. After contributing many patches for Unionfs, I
+re-started my project AUFS (Jun 2006).
 
 In AUFS, the structure of filesystem resembles to Unionfs, but I
 implemented my own ideas, approaches and enhancements and it became
@@ -92,11 +97,14 @@ Comparing DM snapshot and fs based implementation
 - DM snapshot-merge may help a lot when users try merging. in the
   fs-layer union, users will use rsync(1).
 
+You may want to read my old paper "Filesystems in LiveCD"
+(http://aufs.sourceforge.net/aufs2/report/sq/sq.pdf).
 
-Several characters/aspects of aufs
+
+Several characters/aspects/persona of aufs
 ----------------------------------------------------------------------
 
-Aufs has several characters or aspects.
+Aufs has several characters, aspects or persona.
 1. a filesystem, callee of VFS helper
 2. sub-VFS, caller of VFS helper for branches
 3. a virtual filesystem which maintains persistent inode number
@@ -127,10 +135,11 @@ One of the most important issue for a filesystem is to maintain inode
 numbers. This is particularly important to support exporting a
 filesystem via NFS. Aufs is a virtual filesystem which doesn't have a
 backend block device for its own. But some storage is necessary to
-maintain inode number. It may be a large space and may not suit to keep
-in memory. Aufs rents some space from its first writable branch
-filesystem (by default) and creates file(s) on it. These files are
-created by aufs internally and removed soon (currently) keeping opened.
+keep and maintain the inode numbers. It may be a large space and may not
+suit to keep in memory. Aufs rents some space from its first writable
+branch filesystem (by default) and creates file(s) on it. These files
+are created by aufs internally and removed soon (currently) keeping
+opened.
 Note: Because these files are removed, they are totally gone after
       unmounting aufs. It means the inode numbers are not persistent
       across unmount or reboot. I have a plan to make them really
