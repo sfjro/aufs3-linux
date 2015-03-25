@@ -5,9 +5,9 @@ File-based Hierarchical Storage Management (FHSM)
 ----------------------------------------------------------------------
 Hierarchical Storage Management (or HSM) is a well-known feature in the
 storage world. Aufs provides this feature as file-based with multiple
-writable branches, based upon the principle of "Colder-Lower".
+writable branches, based upon the principle of "Colder, the Lower".
 Here the word "colder" means that the less used files, and "lower" means
-that the position in the order of the stacked branches.
+that the position in the order of the stacked branches vertically.
 These multiple writable branches are prioritized, ie. the topmost one
 should be the fastest drive and be used heavily.
 
