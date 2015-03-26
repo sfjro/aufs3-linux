@@ -7,7 +7,7 @@ In aufs, the file-mapped pages are handled by a branch fs directly, no
 interaction with aufs. It means aufs_mmap() calls the branch fs's
 ->mmap().
 This approach is simple and good, but there is one problem.
-Under /proc, several entries show the mmap-ped files by its path (with
+Under /proc, several entries show the mmapped files by its path (with
 device and inode number), and the printed path will be the path on the
 branch fs's instead of virtual aufs's.
 This is not a problem in most cases, but some utilities lsof(1) (and its
@@ -24,7 +24,7 @@ such like
   incremented.
 - merging vma maintains the ref count too.
 
-This is not a good approach. It just faking the printed path. But it
+This is not a good approach. It just fakes the printed path. But it
 leaves all behaviour around f_mapping unchanged. This is surely an
 advantage.
 Actually aufs had adopted another complicated approach which calls
