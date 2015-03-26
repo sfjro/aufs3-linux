@@ -111,7 +111,6 @@ int au_si_alloc(struct super_block *sb)
 	sbinfo->si_sb = sb;
 	sb->s_fs_info = sbinfo;
 	si_pid_set(sb);
-	au_debug_sbinfo_init(sbinfo);
 	return 0; /* success */
 
 out_br:
