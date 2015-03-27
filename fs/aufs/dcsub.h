@@ -14,8 +14,6 @@
 #include <linux/dcache.h>
 #include <linux/fs.h>
 
-struct dentry;
-
 struct au_dpage {
 	int ndentry;
 	struct dentry **dentries;
