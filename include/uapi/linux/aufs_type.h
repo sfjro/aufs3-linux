@@ -180,10 +180,10 @@ typedef int16_t aufs_bindex_t;
 			       "+" AUFS_BRATTR_COO_REG		\
 			       "+" AUFS_BRATTR_FHSM		\
 			       "+" AUFS_BRATTR_UNPIN		\
-			       "+" AUFS_BRATTR_ICEX_SEC	\
-			       "+" AUFS_BRATTR_ICEX_SYS	\
-			       "+" AUFS_BRATTR_ICEX_USR	\
-			       "+" AUFS_BRATTR_ICEX_OTH	\
+			       "+" AUFS_BRATTR_ICEX_SEC		\
+			       "+" AUFS_BRATTR_ICEX_SYS		\
+			       "+" AUFS_BRATTR_ICEX_USR		\
+			       "+" AUFS_BRATTR_ICEX_OTH		\
 			       "+" AUFS_BRWATTR_NLWH)
 
 typedef struct {
