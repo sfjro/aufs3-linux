@@ -344,7 +344,7 @@ static int dbgaufs_xigen_init(struct au_sbinfo *sbinfo)
 void dbgaufs_si_fin(struct au_sbinfo *sbinfo)
 {
 	/*
-	 * This function is a dynamic '__init' function actually,
+	 * This function is a dynamic '__fin' function actually,
 	 * so the tiny check for si_rwsem is unnecessary.
 	 */
 	/* AuRwMustWriteLock(&sbinfo->si_rwsem); */
