@@ -632,7 +632,6 @@ static void dump_opts(struct au_opts *opts)
 			u.xino_itrunc = &opt->xino_itrunc;
 			AuDbg("trunc_xino %d\n", u.xino_itrunc->bindex);
 			break;
-
 		case Opt_noxino:
 			AuLabel(noxino);
 			break;
