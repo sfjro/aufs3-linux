@@ -88,7 +88,7 @@ int au_cpup_xattr(struct dentry *h_dst, struct dentry *h_src, int ignore_flags)
 	char *value, *p, *o, *e;
 
 	/* try stopping to update the source inode while we are referencing */
-	/* there should not be the parent-child relation ship between them */
+	/* there should not be the parent-child relationship between them */
 	h_isrc = h_src->d_inode;
 	h_idst = h_dst->d_inode;
 	mutex_unlock(&h_idst->i_mutex);
