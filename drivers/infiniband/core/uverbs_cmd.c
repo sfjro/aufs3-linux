@@ -1964,19 +1964,20 @@ ssize_t ib_uverbs_modify_qp(struct ib_uverbs_file *file,
 	if (qp->real_qp == qp) {
 		ret = ib_resolve_eth_l2_attrs(qp, attr, &cmd.attr_mask);
 		if (ret)
-			goto out;
+			goto release_qp;
 		ret = qp->device->modify_qp(qp, attr,
 			modify_qp_mask(qp->qp_type, cmd.attr_mask), &udata);
 	} else {
 		ret = ib_modify_qp(qp, attr, modify_qp_mask(qp->qp_type, cmd.attr_mask));
 	}
 
-	put_qp_read(qp);
-
 	if (ret)
-		goto out;
+		goto release_qp;
 
 	ret = in_len;
+
+release_qp:
+	put_qp_read(qp);
 
 out:
 	kfree(attr);
@@ -2425,6 +2426,8 @@ ssize_t ib_uverbs_create_ah(struct ib_uverbs_file *file,
 	attr.grh.sgid_index    = cmd.attr.grh.sgid_index;
 	attr.grh.hop_limit     = cmd.attr.grh.hop_limit;
 	attr.grh.traffic_class = cmd.attr.grh.traffic_class;
+	attr.vlan_id           = 0;
+	memset(&attr.dmac, 0, sizeof(attr.dmac));
 	memcpy(attr.grh.dgid.raw, cmd.attr.grh.dgid, 16);
 
 	ah = ib_create_ah(pd, &attr);
