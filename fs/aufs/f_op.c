@@ -143,9 +143,9 @@ static ssize_t aufs_read(struct file *file, char __user *buf, size_t count,
 	if (unlikely(err))
 		goto out;
 
+	di_read_unlock(dentry, AuLock_IR);
 	h_file = au_hf_top(file);
 	get_file(h_file);
-	di_read_unlock(dentry, AuLock_IR);
 	fi_read_unlock(file);
 
 	/* filedata may be obsoleted by concurrent copyup, but no problem */
@@ -200,37 +200,37 @@ static ssize_t aufs_write(struct file *file, const char __user *ubuf,
 	sb = dentry->d_sb;
 	inode = dentry->d_inode;
 	au_mtx_and_read_lock(inode);
-
 	err = au_reval_and_lock_fdi(file, au_reopen_nondir, /*wlock*/1);
 	if (unlikely(err))
 		goto out;
 
 	err = au_ready_to_write(file, -1, &pin);
-	di_downgrade_lock(dentry, AuLock_IR);
 	if (unlikely(err)) {
-		di_read_unlock(dentry, AuLock_IR);
+		di_write_unlock(dentry);
 		fi_write_unlock(file);
 		goto out;
 	}
 
+	di_downgrade_lock(dentry, !AuLock_IR);
 	bstart = au_fbstart(file);
 	h_file = au_hf_top(file);
 	get_file(h_file);
 	h_inode = file_inode(h_file);
 	blks = h_inode->i_blocks;
 	au_unpin(&pin);
-	di_read_unlock(dentry, AuLock_IR);
+	di_read_unlock(dentry, !AuLock_IR);
 	fi_write_unlock(file);
 
 	err = vfsub_write_u(h_file, buf, count, ppos);
-	ii_write_lock_child(inode);
 	au_cpup_attr_timesizes(inode);
-	inode->i_mode = file_inode(h_file)->i_mode;
-	AuDbg("blks %llu, %llu\n", (u64)blks, (u64)h_inode->i_blocks);
-	if (err > 0)
-		au_fhsm_wrote(sb, bstart, /*force*/h_inode->i_blocks > blks);
+	AuDebugOn(au_ibstart(inode) != bstart);
+	inode->i_mode = h_inode->i_mode;
 	ii_write_unlock(inode);
 	fput(h_file);
+
+	/* AuDbg("blks %llu, %llu\n", (u64)blks, (u64)h_inode->i_blocks); */
+	if (err > 0)
+		au_fhsm_wrote(sb, bstart, /*force*/h_inode->i_blocks > blks);
 
 out:
 	si_read_unlock(sb);
@@ -287,9 +287,9 @@ static ssize_t aufs_aio_read(struct kiocb *kio, const struct iovec *iov,
 	if (unlikely(err))
 		goto out;
 
+	di_read_unlock(dentry, AuLock_IR);
 	h_file = au_hf_top(file);
 	get_file(h_file);
-	di_read_unlock(dentry, AuLock_IR);
 	fi_read_unlock(file);
 
 	err = au_do_aio(h_file, MAY_READ, kio, iov, nv, pos);
@@ -321,37 +321,37 @@ static ssize_t aufs_aio_write(struct kiocb *kio, const struct iovec *iov,
 	sb = dentry->d_sb;
 	inode = dentry->d_inode;
 	au_mtx_and_read_lock(inode);
-
 	err = au_reval_and_lock_fdi(file, au_reopen_nondir, /*wlock*/1);
 	if (unlikely(err))
 		goto out;
 
 	err = au_ready_to_write(file, -1, &pin);
-	di_downgrade_lock(dentry, AuLock_IR);
 	if (unlikely(err)) {
-		di_read_unlock(dentry, AuLock_IR);
+		di_write_unlock(dentry);
 		fi_write_unlock(file);
 		goto out;
 	}
 
+	di_downgrade_lock(dentry, !AuLock_IR);
 	bstart = au_fbstart(file);
 	h_file = au_hf_top(file);
 	get_file(h_file);
 	h_inode = file_inode(h_file);
 	blks = h_inode->i_blocks;
 	au_unpin(&pin);
-	di_read_unlock(dentry, AuLock_IR);
+	di_read_unlock(dentry, !AuLock_IR);
 	fi_write_unlock(file);
 
 	err = au_do_aio(h_file, MAY_WRITE, kio, iov, nv, pos);
-	ii_write_lock_child(inode);
 	au_cpup_attr_timesizes(inode);
-	inode->i_mode = file_inode(h_file)->i_mode;
-	AuDbg("blks %llu, %llu\n", (u64)blks, (u64)h_inode->i_blocks);
-	if (err > 0)
-		au_fhsm_wrote(sb, bstart, /*force*/h_inode->i_blocks > blks);
+	AuDebugOn(au_ibstart(inode) != bstart);
+	inode->i_mode = h_inode->i_mode;
 	ii_write_unlock(inode);
 	fput(h_file);
+
+	/* AuDbg("blks %llu, %llu\n", (u64)blks, (u64)h_inode->i_blocks); */
+	if (err > 0)
+		au_fhsm_wrote(sb, bstart, /*force*/h_inode->i_blocks > blks);
 
 out:
 	si_read_unlock(sb);
@@ -375,7 +375,7 @@ static ssize_t aufs_splice_read(struct file *file, loff_t *ppos,
 	if (unlikely(err))
 		goto out;
 
-	err = -EINVAL;
+	di_read_unlock(dentry, AuLock_IR);
 	h_file = au_hf_top(file);
 	get_file(h_file);
 	if (au_test_loopback_kthread()) {
@@ -385,7 +385,6 @@ static ssize_t aufs_splice_read(struct file *file, loff_t *ppos,
 			smp_mb(); /* unnecessary? */
 		}
 	}
-	di_read_unlock(dentry, AuLock_IR);
 	fi_read_unlock(file);
 
 	err = vfsub_splice_to(h_file, ppos, pipe, len, flags);
@@ -417,37 +416,37 @@ aufs_splice_write(struct pipe_inode_info *pipe, struct file *file, loff_t *ppos,
 	sb = dentry->d_sb;
 	inode = dentry->d_inode;
 	au_mtx_and_read_lock(inode);
-
 	err = au_reval_and_lock_fdi(file, au_reopen_nondir, /*wlock*/1);
 	if (unlikely(err))
 		goto out;
 
 	err = au_ready_to_write(file, -1, &pin);
-	di_downgrade_lock(dentry, AuLock_IR);
 	if (unlikely(err)) {
-		di_read_unlock(dentry, AuLock_IR);
+		di_write_unlock(dentry);
 		fi_write_unlock(file);
 		goto out;
 	}
 
+	di_downgrade_lock(dentry, !AuLock_IR);
 	bstart = au_fbstart(file);
 	h_file = au_hf_top(file);
 	get_file(h_file);
 	h_inode = file_inode(h_file);
 	blks = h_inode->i_blocks;
 	au_unpin(&pin);
-	di_read_unlock(dentry, AuLock_IR);
+	di_read_unlock(dentry, !AuLock_IR);
 	fi_write_unlock(file);
 
 	err = vfsub_splice_from(pipe, h_file, ppos, len, flags);
-	ii_write_lock_child(inode);
 	au_cpup_attr_timesizes(inode);
-	inode->i_mode = file_inode(h_file)->i_mode;
-	AuDbg("blks %llu, %llu\n", (u64)blks, (u64)h_inode->i_blocks);
-	if (err > 0)
-		au_fhsm_wrote(sb, bstart, /*force*/h_inode->i_blocks > blks);
+	AuDebugOn(au_ibstart(inode) != bstart);
+	inode->i_mode = h_inode->i_mode;
 	ii_write_unlock(inode);
 	fput(h_file);
+
+	/* AuDbg("blks %llu, %llu\n", (u64)blks, (u64)h_inode->i_blocks); */
+	if (err > 0)
+		au_fhsm_wrote(sb, bstart, /*force*/h_inode->i_blocks > blks);
 
 out:
 	si_read_unlock(sb);
@@ -471,38 +470,38 @@ static long aufs_fallocate(struct file *file, int mode, loff_t offset,
 	sb = dentry->d_sb;
 	inode = dentry->d_inode;
 	au_mtx_and_read_lock(inode);
-
 	err = au_reval_and_lock_fdi(file, au_reopen_nondir, /*wlock*/1);
 	if (unlikely(err))
 		goto out;
 
 	err = au_ready_to_write(file, -1, &pin);
-	di_downgrade_lock(dentry, AuLock_IR);
 	if (unlikely(err)) {
-		di_read_unlock(dentry, AuLock_IR);
+		di_write_unlock(dentry);
 		fi_write_unlock(file);
 		goto out;
 	}
 
+	di_downgrade_lock(dentry, !AuLock_IR);
 	bstart = au_fbstart(file);
 	h_file = au_hf_top(file);
 	get_file(h_file);
 	h_inode = file_inode(h_file);
 	blks = h_inode->i_blocks;
 	au_unpin(&pin);
-	di_read_unlock(dentry, AuLock_IR);
+	di_read_unlock(dentry, !AuLock_IR);
 	fi_write_unlock(file);
 
 	lockdep_off();
 	err = do_fallocate(h_file, mode, offset, len);
 	lockdep_on();
-	ii_write_lock_child(inode);
 	au_cpup_attr_timesizes(inode);
+	AuDebugOn(au_ibstart(inode) != bstart);
 	inode->i_mode = h_inode->i_mode;
-	if (err > 0)
-		au_fhsm_wrote(sb, bstart, /*force*/h_inode->i_blocks > blks);
 	ii_write_unlock(inode);
 	fput(h_file);
+
+	if (err > 0)
+		au_fhsm_wrote(sb, bstart, /*force*/h_inode->i_blocks > blks);
 
 out:
 	si_read_unlock(sb);
@@ -591,20 +590,22 @@ static int aufs_mmap(struct file *file, struct vm_area_struct *vma)
 
 	if (wlock) {
 		err = au_ready_to_write(file, -1, &pin);
-		di_write_unlock(dentry);
 		if (unlikely(err)) {
+			di_write_unlock(dentry);
 			fi_write_unlock(file);
 			goto out;
 		}
-		au_unpin(&pin);
-	} else
-		di_write_unlock(dentry);
+	}
 
+	di_downgrade_lock(dentry, AuLock_IR);
 	bstart = au_fbstart(file);
 	br = au_sbr(sb, bstart);
 	h_file = au_hf_top(file);
 	get_file(h_file);
 	au_set_mmapped(file);
+	if (wlock)
+		au_unpin(&pin);
+	di_read_unlock(dentry, AuLock_IR);
 	fi_write_unlock(file);
 	lockdep_on();
 
@@ -664,18 +665,24 @@ static int aufs_fsync_nondir(struct file *file, loff_t start, loff_t end,
 		goto out_mtx;
 
 	err = au_ready_to_write(file, -1, &pin);
-	di_downgrade_lock(dentry, AuLock_IR);
-	if (unlikely(err))
-		goto out_fdi;
-	au_unpin(&pin);
+	if (unlikely(err)) {
+		di_write_unlock(dentry);
+		fi_write_unlock(file);
+		goto out_mtx;
+	}
 
+	di_downgrade_lock(dentry, !AuLock_IR);
 	h_file = au_hf_top(file);
+	get_file(h_file);
+	au_unpin(&pin);
+	di_read_unlock(dentry, !AuLock_IR);
+	fi_write_unlock(file);
+
 	err = vfsub_fsync(h_file, &h_file->f_path, datasync);
 	au_cpup_attr_timesizes(inode);
+	ii_write_unlock(inode);
+	fput(h_file);
 
-out_fdi:
-	di_read_unlock(dentry, AuLock_IR);
-	fi_write_unlock(file);
 out_mtx:
 	si_read_unlock(sb);
 	mutex_unlock(&inode->i_mutex);
@@ -706,13 +713,20 @@ static int aufs_aio_fsync_nondir(struct kiocb *kio, int datasync)
 		goto out_mtx;
 
 	err = au_ready_to_write(file, -1, &pin);
-	di_downgrade_lock(dentry, AuLock_IR);
-	if (unlikely(err))
-		goto out_fdi;
+	if (unlikely(err)) {
+		di_write_unlock(dentry);
+		fi_write_unlock(file);
+		goto out_mtx;
+	}
+
+	di_downgrade_lock(dentry, !AuLock_IR);
+	h_file = au_hf_top(file);
+	get_file(h_file);
 	au_unpin(&pin);
+	di_read_unlock(dentry, !AuLock_IR);
+	fi_write_unlock(file);
 
 	err = -ENOSYS;
-	h_file = au_hf_top(file);
 	if (h_file->f_op->aio_fsync) {
 		struct mutex *h_mtx;
 
@@ -727,13 +741,13 @@ static int aufs_aio_fsync_nondir(struct kiocb *kio, int datasync)
 		if (!err)
 			vfsub_update_h_iattr(&h_file->f_path, /*did*/NULL);
 		/*ignore*/
-		au_cpup_attr_timesizes(inode);
 		mutex_unlock(h_mtx);
-	}
 
-out_fdi:
-	di_read_unlock(dentry, AuLock_IR);
-	fi_write_unlock(file);
+		au_cpup_attr_timesizes(inode);
+	}
+	ii_write_lock_child(inode);
+	fput(h_file);
+
 out_mtx:
 	si_read_unlock(inode->sb);
 	mutex_unlock(&inode->i_mutex);
@@ -756,12 +770,14 @@ static int aufs_fasync(int fd, struct file *file, int flag)
 	if (unlikely(err))
 		goto out;
 
+	di_read_unlock(dentry, AuLock_IR);
 	h_file = au_hf_top(file);
+	get_file(h_file);
+	fi_read_unlock(file);
+
 	if (h_file->f_op->fasync)
 		err = h_file->f_op->fasync(fd, h_file, flag);
-
-	di_read_unlock(dentry, AuLock_IR);
-	fi_read_unlock(file);
+	fput(h_file);
 
 out:
 	si_read_unlock(sb);
