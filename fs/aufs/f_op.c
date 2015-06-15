@@ -226,12 +226,12 @@ static ssize_t aufs_read(struct file *file, char __user *buf, size_t count,
 			 loff_t *ppos)
 {
 	ssize_t err;
-	struct dentry *dentry;
+	struct inode *inode;
 	struct file *h_file;
 	struct super_block *sb;
 
-	dentry = file->f_dentry;
-	sb = dentry->d_sb;
+	inode = file_inode(file);
+	sb = inode->i_sb;
 	si_read_lock(sb, AuLock_FLUSH | AuLock_NOPLMW);
 
 	h_file = au_read_pre(file, /*keep_fi*/0);
@@ -243,7 +243,7 @@ static ssize_t aufs_read(struct file *file, char __user *buf, size_t count,
 	err = vfsub_read_u(h_file, buf, count, ppos);
 	/* todo: necessary? */
 	/* file->f_ra = h_file->f_ra; */
-	au_read_post(dentry->d_inode, h_file);
+	au_read_post(inode, h_file);
 
 out:
 	si_read_unlock(sb);
@@ -277,15 +277,11 @@ static ssize_t aufs_write(struct file *file, const char __user *ubuf,
 {
 	ssize_t err;
 	struct au_write_pre wpre;
-	struct dentry *dentry;
 	struct inode *inode;
-	struct super_block *sb;
 	struct file *h_file;
 	char __user *buf = (char __user *)ubuf;
 
-	dentry = file->f_dentry;
-	sb = dentry->d_sb;
-	inode = dentry->d_inode;
+	inode = file_inode(file);
 	au_mtx_and_read_lock(inode);
 
 	h_file = au_write_pre(file, /*do_ready*/1, &wpre);
@@ -297,7 +293,7 @@ static ssize_t aufs_write(struct file *file, const char __user *ubuf,
 	au_write_post(inode, h_file, &wpre, err);
 
 out:
-	si_read_unlock(sb);
+	si_read_unlock(inode->i_sb);
 	mutex_unlock(&inode->i_mutex);
 	return err;
 }
@@ -349,12 +345,12 @@ static ssize_t aufs_read_iter(struct kiocb *kio, struct iov_iter *iov_iter)
 {
 	ssize_t err;
 	struct file *file, *h_file;
-	struct dentry *dentry;
+	struct inode *inode;
 	struct super_block *sb;
 
 	file = kio->ki_filp;
-	dentry = file->f_dentry;
-	sb = dentry->d_sb;
+	inode = file_inode(file);
+	sb = inode->i_sb;
 	si_read_lock(sb, AuLock_FLUSH | AuLock_NOPLMW);
 
 	h_file = au_read_pre(file, /*keep_fi*/0);
@@ -365,7 +361,7 @@ static ssize_t aufs_read_iter(struct kiocb *kio, struct iov_iter *iov_iter)
 	err = au_do_iter(h_file, MAY_READ, kio, iov_iter);
 	/* todo: necessary? */
 	/* file->f_ra = h_file->f_ra; */
-	au_read_post(dentry->d_inode, h_file);
+	au_read_post(inode, h_file);
 
 out:
 	si_read_unlock(sb);
@@ -376,15 +372,11 @@ static ssize_t aufs_write_iter(struct kiocb *kio, struct iov_iter *iov_iter)
 {
 	ssize_t err;
 	struct au_write_pre wpre;
-	struct dentry *dentry;
 	struct inode *inode;
 	struct file *file, *h_file;
-	struct super_block *sb;
 
 	file = kio->ki_filp;
-	dentry = file->f_dentry;
-	sb = dentry->d_sb;
-	inode = dentry->d_inode;
+	inode = file_inode(file);
 	au_mtx_and_read_lock(inode);
 
 	h_file = au_write_pre(file, /*do_ready*/1, &wpre);
@@ -396,7 +388,7 @@ static ssize_t aufs_write_iter(struct kiocb *kio, struct iov_iter *iov_iter)
 	au_write_post(inode, h_file, &wpre, err);
 
 out:
-	si_read_unlock(sb);
+	si_read_unlock(inode->i_sb);
 	mutex_unlock(&inode->i_mutex);
 	return err;
 }
@@ -407,11 +399,11 @@ static ssize_t aufs_splice_read(struct file *file, loff_t *ppos,
 {
 	ssize_t err;
 	struct file *h_file;
-	struct dentry *dentry;
+	struct inode *inode;
 	struct super_block *sb;
 
-	dentry = file->f_dentry;
-	sb = dentry->d_sb;
+	inode = file_inode(file);
+	sb = inode->i_sb;
 	si_read_lock(sb, AuLock_FLUSH | AuLock_NOPLMW);
 
 	h_file = au_read_pre(file, /*keep_fi*/1);
@@ -431,7 +423,7 @@ static ssize_t aufs_splice_read(struct file *file, loff_t *ppos,
 	err = vfsub_splice_to(h_file, ppos, pipe, len, flags);
 	/* todo: necessasry? */
 	/* file->f_ra = h_file->f_ra; */
-	au_read_post(dentry->d_inode, h_file);
+	au_read_post(inode, h_file);
 
 out:
 	si_read_unlock(sb);
@@ -444,14 +436,10 @@ aufs_splice_write(struct pipe_inode_info *pipe, struct file *file, loff_t *ppos,
 {
 	ssize_t err;
 	struct au_write_pre wpre;
-	struct dentry *dentry;
 	struct inode *inode;
-	struct super_block *sb;
 	struct file *h_file;
 
-	dentry = file->f_dentry;
-	sb = dentry->d_sb;
-	inode = dentry->d_inode;
+	inode = file_inode(file);
 	au_mtx_and_read_lock(inode);
 
 	h_file = au_write_pre(file, /*do_ready*/1, &wpre);
@@ -463,7 +451,7 @@ aufs_splice_write(struct pipe_inode_info *pipe, struct file *file, loff_t *ppos,
 	au_write_post(inode, h_file, &wpre, err);
 
 out:
-	si_read_unlock(sb);
+	si_read_unlock(inode->i_sb);
 	mutex_unlock(&inode->i_mutex);
 	return err;
 }
@@ -473,14 +461,10 @@ static long aufs_fallocate(struct file *file, int mode, loff_t offset,
 {
 	long err;
 	struct au_write_pre wpre;
-	struct dentry *dentry;
-	struct super_block *sb;
 	struct inode *inode;
 	struct file *h_file;
 
-	dentry = file->f_dentry;
-	sb = dentry->d_sb;
-	inode = dentry->d_inode;
+	inode = file_inode(file);
 	au_mtx_and_read_lock(inode);
 
 	h_file = au_write_pre(file, /*do_ready*/1, &wpre);
@@ -494,7 +478,7 @@ static long aufs_fallocate(struct file *file, int mode, loff_t offset,
 	au_write_post(inode, h_file, &wpre, /*written*/1);
 
 out:
-	si_read_unlock(sb);
+	si_read_unlock(inode->i_sb);
 	mutex_unlock(&inode->i_mutex);
 	return err;
 }
@@ -561,15 +545,14 @@ static int aufs_mmap(struct file *file, struct vm_area_struct *vma)
 	int err;
 	const unsigned char wlock
 		= (file->f_mode & FMODE_WRITE) && (vma->vm_flags & VM_SHARED);
-	struct dentry *dentry;
 	struct super_block *sb;
 	struct file *h_file;
 	struct inode *inode;
 
 	AuDbgVmRegion(file, vma);
 
-	dentry = file->f_dentry;
-	sb = dentry->d_sb;
+	inode = file_inode(file);
+	sb = inode->i_sb;
 	lockdep_off();
 	si_read_lock(sb, AuLock_NOPLMW);
 
@@ -580,7 +563,6 @@ static int aufs_mmap(struct file *file, struct vm_area_struct *vma)
 		goto out;
 
 	err = 0;
-	inode = file_inode(file);
 	au_set_mmapped(file);
 	au_vm_file_reset(vma, h_file);
 	/*
@@ -620,18 +602,14 @@ static int aufs_fsync_nondir(struct file *file, loff_t start, loff_t end,
 {
 	int err;
 	struct au_write_pre wpre;
-	struct dentry *dentry;
 	struct inode *inode;
 	struct file *h_file;
-	struct super_block *sb;
 
 	err = 0; /* -EBADF; */ /* posix? */
 	if (unlikely(!(file->f_mode & FMODE_WRITE)))
 		goto out;
 
-	dentry = file->f_dentry;
-	sb = dentry->d_sb;
-	inode = dentry->d_inode;
+	inode = file_inode(file);
 	au_mtx_and_read_lock(inode);
 
 	h_file = au_write_pre(file, /*do_ready*/1, &wpre);
@@ -643,7 +621,7 @@ static int aufs_fsync_nondir(struct file *file, loff_t start, loff_t end,
 	au_write_post(inode, h_file, &wpre, /*written*/0);
 
 out_unlock:
-	si_read_unlock(sb);
+	si_read_unlock(inode->i_sb);
 	mutex_unlock(&inode->i_mutex);
 out:
 	return err;
@@ -655,7 +633,6 @@ static int aufs_aio_fsync_nondir(struct kiocb *kio, int datasync)
 {
 	int err;
 	struct au_write_pre wpre;
-	struct dentry *dentry;
 	struct inode *inode;
 	struct file *file, *h_file;
 
@@ -664,8 +641,7 @@ static int aufs_aio_fsync_nondir(struct kiocb *kio, int datasync)
 		goto out;
 
 	file = kio->ki_filp;
-	dentry = file->f_dentry;
-	inode = dentry->d_inode;
+	inode = file_inode(file);
 	au_mtx_and_read_lock(inode);
 
 	h_file = au_write_pre(file, /*do_ready*/1, &wpre);
@@ -705,11 +681,9 @@ static int aufs_fasync(int fd, struct file *file, int flag)
 {
 	int err;
 	struct file *h_file;
-	struct dentry *dentry;
 	struct super_block *sb;
 
-	dentry = file->f_dentry;
-	sb = dentry->d_sb;
+	sb = file->f_dentry->d_sb;
 	si_read_lock(sb, AuLock_FLUSH | AuLock_NOPLMW);
 
 	h_file = au_read_pre(file, /*keep_fi*/0);
