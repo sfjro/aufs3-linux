@@ -423,11 +423,10 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
 		if (!nskb)
 			return -ENOMEM;
 
-		nskb = __vlan_put_tag(nskb, nskb->vlan_proto, vlan_tx_tag_get(nskb));
+		nskb = __vlan_hwaccel_push_inside(nskb);
 		if (!nskb)
 			return -ENOMEM;
 
-		nskb->vlan_tci = 0;
 		skb = nskb;
 	}
 
@@ -835,7 +834,7 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
 	if (error)
 		goto err_kfree_flow;
 
-	ovs_flow_mask_key(&new_flow->key, &new_flow->unmasked_key, &mask);
+	ovs_flow_mask_key(&new_flow->key, &new_flow->unmasked_key, true, &mask);
 
 	/* Validate actions. */
 	acts = ovs_nla_alloc_flow_actions(nla_len(a[OVS_FLOW_ATTR_ACTIONS]));
@@ -950,7 +949,7 @@ static struct sw_flow_actions *get_flow_actions(const struct nlattr *a,
 	if (IS_ERR(acts))
 		return acts;
 
-	ovs_flow_mask_key(&masked_key, key, mask);
+	ovs_flow_mask_key(&masked_key, key, true, mask);
 	error = ovs_nla_copy_actions(a, &masked_key, 0, &acts);
 	if (error) {
 		OVS_NLERR("Flow actions may not be safe on all matching packets.\n");
@@ -2060,14 +2059,55 @@ static int __net_init ovs_init_net(struct net *net)
 	return 0;
 }
 
-static void __net_exit ovs_exit_net(struct net *net)
+static void __net_exit list_vports_from_net(struct net *net, struct net *dnet,
+					    struct list_head *head)
+{
+	struct ovs_net *ovs_net = net_generic(net, ovs_net_id);
+	struct datapath *dp;
+
+	list_for_each_entry(dp, &ovs_net->dps, list_node) {
+		int i;
+
+		for (i = 0; i < DP_VPORT_HASH_BUCKETS; i++) {
+			struct vport *vport;
+
+			hlist_for_each_entry(vport, &dp->ports[i], dp_hash_node) {
+				struct netdev_vport *netdev_vport;
+
+				if (vport->ops->type != OVS_VPORT_TYPE_INTERNAL)
+					continue;
+
+				netdev_vport = netdev_vport_priv(vport);
+				if (dev_net(netdev_vport->dev) == dnet)
+					list_add(&vport->detach_list, head);
+			}
+		}
+	}
+}
+
+static void __net_exit ovs_exit_net(struct net *dnet)
 {
 	struct datapath *dp, *dp_next;
-	struct ovs_net *ovs_net = net_generic(net, ovs_net_id);
+	struct ovs_net *ovs_net = net_generic(dnet, ovs_net_id);
+	struct vport *vport, *vport_next;
+	struct net *net;
+	LIST_HEAD(head);
 
 	ovs_lock();
 	list_for_each_entry_safe(dp, dp_next, &ovs_net->dps, list_node)
 		__dp_destroy(dp);
+
+	rtnl_lock();
+	for_each_net(net)
+		list_vports_from_net(net, dnet, &head);
+	rtnl_unlock();
+
+	/* Detach all vports from given namespace. */
+	list_for_each_entry_safe(vport, vport_next, &head, detach_list) {
+		list_del(&vport->detach_list);
+		ovs_dp_detach_port(vport);
+	}
+
 	ovs_unlock();
 
 	cancel_work_sync(&ovs_net->dp_notify_work);
