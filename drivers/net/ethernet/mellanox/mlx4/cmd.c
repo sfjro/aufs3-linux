@@ -585,7 +585,8 @@ static int mlx4_cmd_wait(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
 		 * on the host, we deprecate the error message for this
 		 * specific command/input_mod/opcode_mod/fw-status to be debug.
 		 */
-		if (op == MLX4_CMD_SET_PORT && in_modifier == 1 &&
+		if (op == MLX4_CMD_SET_PORT &&
+		    (in_modifier == 1 || in_modifier == 2) &&
 		    op_modifier == 0 && context->fw_status == CMD_STAT_BAD_SIZE)
 			mlx4_dbg(dev, "command 0x%x failed: fw status = 0x%x\n",
 				 op, context->fw_status);
@@ -2046,7 +2047,7 @@ int mlx4_multi_func_init(struct mlx4_dev *dev)
 			spin_lock_init(&s_state->lock);
 		}
 
-		memset(&priv->mfunc.master.cmd_eqe, 0, dev->caps.eqe_size);
+		memset(&priv->mfunc.master.cmd_eqe, 0, sizeof(struct mlx4_eqe));
 		priv->mfunc.master.cmd_eqe.type = MLX4_EVENT_TYPE_CMD;
 		INIT_WORK(&priv->mfunc.master.comm_work,
 			  mlx4_master_comm_channel);
